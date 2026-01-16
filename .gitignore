@@ -1,0 +1,9 @@
+# Node modules for both frontend and backend
+Backend/node_modules/
+Frontend/node_modules/
+**/node_modules/
+
+# Optional: OS or editor files
+.DS_Store
+*.log
+.env

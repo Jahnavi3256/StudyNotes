@@ -1,0 +1,86 @@
+/* ----- FULL WIDTH + FULL HEIGHT CONTAINER ----- */
+.rte-container {
+  width: 100%;
+  max-width: none !important;
+  margin: 0 !important;
+  border: 1px solid #ccc;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100% !important;
+  border-radius: 8px;
+}
+
+/* Dark mode */
+.rte-container.dark {
+  background: #1e1e1e;
+  border-color: #444;
+  color: #eee;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+}
+
+.rte-container.dark .toolbar {
+  background: #2a2a2a;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.toolbar button,
+.toolbar select,
+.toolbar input[type="color"] {
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.rte-container.dark .toolbar button,
+.rte-container.dark .toolbar select {
+  background: #333;
+  border-color: #555;
+  color: #fff;
+}
+
+.toolbar button:hover,
+.toolbar select:hover {
+  background: #eee;
+}
+
+/* Editor wrapper — takes full remaining space */
+.editor-wrapper {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* ProseMirror (the editable area) FULL HEIGHT */
+.ProseMirror {
+  padding: 12px;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.ProseMirror p {
+  margin: 0;
+}
+
+/* Images inside editor */
+.editor img {
+  max-width: 200px;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+  margin: 6px 0;
+}
