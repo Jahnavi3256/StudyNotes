@@ -8,16 +8,16 @@
 /* how to list the recent activity */
 
 // server.js
-require('dotenv').config();
-const express = require('express');
-const axios = require('axios');
-const { Pool } = require('pg');
-const cookieParser = require('cookie-parser');
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const { OAuth2Client } = require('google-auth-library');
-const cors = require('cors');
-const {google} = require('googleapis');
+require('dotenv').config({path: "../.env"});
+import express, { json } from 'express';
+import { post } from 'axios';
+import { Pool } from 'pg';
+import cookieParser from 'cookie-parser';
+import { sign, verify } from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
+import cors from 'cors';
+import { google } from 'googleapis';
 
 const app = express();
 app.use(cors({
@@ -25,7 +25,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
+app.use(json());
 app.use(cookieParser());
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -42,7 +42,7 @@ const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // Utility: generate cryptographically secure random string (for state)
 function generateState() {
-  return crypto.randomBytes(16).toString('hex');
+  return randomBytes(16).toString('hex');
 }
 
 // ----------------------------------
@@ -104,7 +104,7 @@ app.get('/auth/google/callback', async (req, res) => {
     res.clearCookie('oauth_state');
 
     // Exchange code for tokens
-    const tokenRes = await axios.post('https://oauth2.googleapis.com/token', new URLSearchParams({
+    const tokenRes = await post('https://oauth2.googleapis.com/token', new URLSearchParams({
       code,
       client_id: GOOGLE_CLIENT_ID,
       client_secret: GOOGLE_CLIENT_SECRET,
@@ -158,7 +158,7 @@ app.get('/auth/google/callback', async (req, res) => {
 
       // Create our own session (JWT)
       const tokenPayload = { userId, email, name: fullName };
-      const appToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '7d' });
+      const appToken = sign(tokenPayload, JWT_SECRET, { expiresIn: '7d' });
 
       // Set cookie (HTTP-only)
       res.cookie('app_session', appToken, {
@@ -189,7 +189,7 @@ app.get('/api/me', async (req, res) => {
     if (!token) return res.status(401).json({ error: 'Not authenticated' });
     let payload;
     try {
-      payload = jwt.verify(token, JWT_SECRET);
+      payload = verify(token, JWT_SECRET);
     } catch (err) {
       return res.status(401).json({ error: 'Invalid token' });
     }

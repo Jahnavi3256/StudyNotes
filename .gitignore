@@ -1,4 +1,5 @@
 # Node modules for both frontend and backend
+Backend/.env
 Backend/node_modules/
 Frontend/node_modules/
 **/node_modules/
@@ -7,3 +8,5 @@ Frontend/node_modules/
 .DS_Store
 *.log
 .env
+
+.vscode
