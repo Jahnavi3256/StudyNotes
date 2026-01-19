@@ -8,7 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model users {
+model User {
   id              Int       @id @default(autoincrement())
   google_id       String?   @unique
   email           String    @unique
@@ -18,4 +18,41 @@ model users {
   created_at      DateTime? @default(now()) @db.Timestamptz(6)
   updated_at      DateTime? @default(now()) @db.Timestamptz(6)
   drive_folder_id String?
+  notebook        Notebook[]
+  document        Document[]
+}
+
+
+model Notebook {
+  id              Int       @id @default(autoincrement())
+  title           String    @db.VarChar(255)
+  colour          String    @default("#6366f1") @db.VarChar(7)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  owner_id        Int
+  users           User      @relation(fields: [owner_id], references: [id], onDelete: Cascade)
+  note            Note[]
+}
+
+model Document {
+  id              Int       @id @default(autoincrement())
+  filename        String    @db.VarChar(255)
+  file_url        String
+  file_size       BigInt
+  mime_type       String    @default("application/pdf") @db.VarChar(100)
+  page_count      Int?
+  uploaded_at     DateTime  @default(now()) @db.Timestamptz(6)
+  uploader_id     Int
+  users           User      @relation(fields: [uploader_id], references: [id], onDelete: Cascade)
+}
+
+model Note {
+  id              Int       @id @default(autoincrement())
+  title           String    @db.VarChar(255)
+  content         Json
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  notebook_id     Int
+  notebooks       Notebook  @relation(fields: [notebook_id], references: [id], onDelete: Cascade)
+
 }

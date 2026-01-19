@@ -1,174 +1,186 @@
-/* 1) structure the code in the good format 
-2) see what is happening 
-3) if the folder of the unique name already exist then do not create it again okay
-4) proceed with other db structuring + how you will store the files to the google drive  
-5) push this on github 
-*/
-
-/* how to list the recent activity */
-
-// server.js
-require('dotenv').config({path: "../.env"});
-import express, { json } from 'express';
-import { post } from 'axios';
+import 'dotenv/config';
+import express from 'express';
+import axios from 'axios';
 import { Pool } from 'pg';
 import cookieParser from 'cookie-parser';
-import { sign, verify } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
-import { OAuth2Client } from 'google-auth-library';
 import cors from 'cors';
 import { google } from 'googleapis';
+import { OAuth2Client } from 'google-auth-library';
 
 const app = express();
+
+/* -------------------- MIDDLEWARE -------------------- */
+app.use(express.json());
+app.use(cookieParser());
 app.use(cors({
   origin: 'http://localhost:5173',
   credentials: true,
 }));
 
-app.use(json());
-app.use(cookieParser());
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
+/* -------------------- ENV -------------------- */
 const {
+  DATABASE_URL,
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   GOOGLE_REDIRECT_URI,
   JWT_SECRET,
-  APP_BASE_URL
+  APP_BASE_URL,
 } = process.env;
 
+/* -------------------- DB -------------------- */
+const pool = new Pool({ connectionString: DATABASE_URL });
+
+/* -------------------- GOOGLE -------------------- */
 const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-// Utility: generate cryptographically secure random string (for state)
-function generateState() {
-  return randomBytes(16).toString('hex');
-}
+/* -------------------- UTILS -------------------- */
+const generateState = () => randomBytes(16).toString('hex');
 
-// ----------------------------------
-async function createNotesFolder(accessToken) {
+/* -------------------- GOOGLE DRIVE -------------------- */
+async function getOrCreateNotesFolder(accessToken) {
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
 
   const drive = google.drive({ version: 'v3', auth });
 
-  const folderMetadata = {
-    name: 'notes',
-    mimeType: 'application/vnd.google-apps.folder',
-  };
+  // Check if folder already exists
+  const listRes = await drive.files.list({
+    q: "mimeType='application/vnd.google-apps.folder' and name='notes' and trashed=false",
+    fields: 'files(id, name)',
+  });
 
-  const folder = await drive.files.create({
-    resource: folderMetadata,
+  if (listRes.data.files.length > 0) {
+    return listRes.data.files[0].id;
+  }
+
+  // Create only if NOT exists
+  const createRes = await drive.files.create({
+    resource: {
+      name: 'notes',
+      mimeType: 'application/vnd.google-apps.folder',
+    },
     fields: 'id',
   });
 
-  return folder.data.id;
+  return createRes.data.id;
 }
 
-// ----------------------------------
+/* -------------------- AUTH ROUTES -------------------- */
 
-// 1) Redirect user to Google
+// Step 1: Redirect to Google
 app.get('/auth/google', (req, res) => {
   const state = generateState();
-  // store state in cookie for CSRF protection
+
   res.cookie('oauth_state', state, {
     httpOnly: true,
-    sameSite: 'lax', // in production consider 'none' with secure true for cross-site cookies
-    secure: false, // set true on HTTPS in production
-    maxAge: 5 * 60 * 1000 // 5 minutes
+    sameSite: 'lax',
+    secure: false,
+    maxAge: 5 * 60 * 1000,
   });
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
     redirect_uri: GOOGLE_REDIRECT_URI,
     response_type: 'code',
-    scope: 'openid email profile https://www.googleapis.com/auth/drive.file', // minimal scopes
-    access_type: 'offline', // request refresh_token
-    include_granted_scopes: 'true',
-    state
+    scope: 'openid email profile https://www.googleapis.com/auth/drive.file',
+    access_type: 'offline',
+    prompt: 'consent',
+    state,
   });
 
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  res.redirect(authUrl);
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
 
-// 2) Callback handler
+// Step 2: Callback
 app.get('/auth/google/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
-    const storedState = req.cookies['oauth_state'];
-    if (!state || !storedState || state !== storedState) {
-      return res.status(400).send('Invalid state parameter (possible CSRF)');
+    const savedState = req.cookies.oauth_state;
+
+    if (!state || state !== savedState) {
+      return res.status(400).send('Invalid OAuth state');
     }
-    // Clear the state cookie
+
     res.clearCookie('oauth_state');
 
     // Exchange code for tokens
-    const tokenRes = await post('https://oauth2.googleapis.com/token', new URLSearchParams({
-      code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: GOOGLE_REDIRECT_URI,
-      grant_type: 'authorization_code'
-    }).toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
+    const tokenRes = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      new URLSearchParams({
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: GOOGLE_REDIRECT_URI,
+        grant_type: 'authorization_code',
+      }).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
 
     const { id_token, access_token, refresh_token } = tokenRes.data;
 
-    // Verify id_token and get payload
+    // Verify user
     const ticket = await oauth2Client.verifyIdToken({
       idToken: id_token,
-      audience: GOOGLE_CLIENT_ID
+      audience: GOOGLE_CLIENT_ID,
     });
+
     const payload = ticket.getPayload();
-    // payload contains: sub (Google user id), email, email_verified, name, picture, locale, etc.
+
     const googleId = payload.sub;
     const email = payload.email;
-    const fullName = payload.name;
+    const name = payload.name;
     const avatar = payload.picture;
 
-    // Upsert user in DB
     const client = await pool.connect();
+
     try {
       await client.query('BEGIN');
-      const findRes = await client.query('SELECT id FROM users WHERE google_id=$1 OR email=$2', [googleId, email]);
-      let userId;
-      if (findRes.rows.length === 0) {
-        // create the folder first 
-        driveFolderId = await createNotesFolder(access_token);
 
-        const insertRes = await client.query(
-          `INSERT INTO users (google_id, email, full_name, avatar_url, refresh_token,drive_folder_id)
-           VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-          [googleId, email, fullName, avatar, refresh_token || null, driveFolderId]
+      const userRes = await client.query(
+        'SELECT id, drive_folder_id FROM users WHERE google_id=$1 OR email=$2',
+        [googleId, email]
+      );
+
+      let userId;
+      let driveFolderId;
+
+      if (userRes.rows.length === 0) {
+        driveFolderId = await getOrCreateNotesFolder(access_token);
+
+        const insert = await client.query(
+          `INSERT INTO users 
+           (google_id, email, full_name, avatar_url, refresh_token, drive_folder_id)
+           VALUES ($1,$2,$3,$4,$5,$6)
+           RETURNING id`,
+          [googleId, email, name, avatar, refresh_token, driveFolderId]
         );
-        userId = insertRes.rows[0].id;
+
+        userId = insert.rows[0].id;
       } else {
-        userId = findRes.rows[0].id;
-        // update refresh_token if provided and maybe update profile fields
+        userId = userRes.rows[0].id;
+        driveFolderId = userRes.rows[0].drive_folder_id;
+
         if (refresh_token) {
           await client.query(
-            `UPDATE users SET refresh_token=$1, full_name=$2, avatar_url=$3, updated_at=now() WHERE id=$4`,
-            [refresh_token, fullName, avatar, userId]
+            `UPDATE users SET refresh_token=$1, updated_at=now() WHERE id=$2`,
+            [refresh_token, userId]
           );
         }
       }
+
       await client.query('COMMIT');
 
-      // Create our own session (JWT)
-      const tokenPayload = { userId, email, name: fullName };
-      const appToken = sign(tokenPayload, JWT_SECRET, { expiresIn: '7d' });
+      const appToken = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 
-      // Set cookie (HTTP-only)
       res.cookie('app_session', appToken, {
         httpOnly: true,
-        secure: false, // set true in production (HTTPS)
         sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000
+        secure: false,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
-      // Redirect back to frontend app
       res.redirect(`${APP_BASE_URL}/auth-success`);
     } catch (err) {
       await client.query('ROLLBACK');
@@ -176,32 +188,33 @@ app.get('/auth/google/callback', async (req, res) => {
     } finally {
       client.release();
     }
+
   } catch (err) {
-    console.error('OAuth callback error', err.response?.data || err.message || err);
+    console.error(err);
     res.status(500).send('Authentication failed');
   }
 });
 
-// 3) Example protected endpoint: get current user
+/* -------------------- PROTECTED ROUTE -------------------- */
 app.get('/api/me', async (req, res) => {
   try {
-    const token = req.cookies['app_session'] || req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Not authenticated' });
-    let payload;
-    try {
-      payload = verify(token, JWT_SECRET);
-    } catch (err) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    const userRes = await pool.query('SELECT id, email, full_name, avatar_url FROM users WHERE id=$1', [payload.userId]);
-    if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-    res.json({ user: userRes.rows[0] });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    const token = req.cookies.app_session;
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    const user = await pool.query(
+      'SELECT id, email, full_name, avatar_url FROM users WHERE id=$1',
+      [decoded.userId]
+    );
+
+    res.json(user.rows[0]);
+  } catch {
+    res.status(401).json({ error: 'Invalid session' });
   }
 });
 
-app.listen(process.env.PORT || 4000, () => {
-  console.log('Server started on port', process.env.PORT || 4000);
+/* -------------------- START -------------------- */
+app.listen(4000, '0.0.0.0', () => {
+  console.log('Server running on http://0.0.0.0:4000');
 });
