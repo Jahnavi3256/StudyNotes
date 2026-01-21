@@ -31,6 +31,7 @@
     "@tiptap/extension-youtube": "^3.11.1",
     "@tiptap/react": "^3.11.1",
     "@tiptap/starter-kit": "^3.11.1",
+    "axios": "^1.13.2",
     "emoji-picker-react": "^4.16.1",
     "lexical": "^0.38.2",
     "lucide-react": "^0.555.0",

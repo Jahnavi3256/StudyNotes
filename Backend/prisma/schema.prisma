@@ -27,11 +27,14 @@ model Notebook {
   id              Int       @id @default(autoincrement())
   title           String    @db.VarChar(255)
   colour          String    @default("#6366f1") @db.VarChar(7)
+  folder_id       String?
   created_at      DateTime  @default(now()) @db.Timestamptz(6)
   updated_at      DateTime  @default(now()) @db.Timestamptz(6)
   owner_id        Int
   users           User      @relation(fields: [owner_id], references: [id], onDelete: Cascade)
   note            Note[]
+  document        Document[]
+
 }
 
 model Document {
@@ -44,6 +47,8 @@ model Document {
   uploaded_at     DateTime  @default(now()) @db.Timestamptz(6)
   uploader_id     Int
   users           User      @relation(fields: [uploader_id], references: [id], onDelete: Cascade)
+  notebook_id     Int
+  notebooks       Notebook  @relation(fields: [notebook_id], references: [id], onDelete:Cascade)
 }
 
 model Note {

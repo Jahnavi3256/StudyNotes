@@ -17,6 +17,7 @@ export default function AuthSuccess() {
           navigate('/');         // success
         }
       } catch (err) {
+        console.log(err);
         if (isMounted) {
           navigate('/login');    // failure
         }
