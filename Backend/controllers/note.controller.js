@@ -1,0 +1,133 @@
+import 'dotenv/config';
+import {PrismaClient} from '@prisma/client';
+
+
+export const createNote = async (req, res) => {
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;
+    const { notebookId } = req.body; // use parameters here
+    const { title, content } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ message: "Note title is required" });
+    }
+
+    // 1. Verify notebook ownership
+    const notebook = await prisma.notebook.findFirst({
+      where: {
+        id: Number(notebookId),
+        owner_id: userId,
+      },
+      select: { id: true },
+    });
+
+    if (!notebook) {
+      return res.status(404).json({ message: "Notebook not found" });
+    }
+
+    // 2. Create note
+    const note = await prisma.note.create({
+      data: {
+        title,
+        content: content || {},
+        notebook_id: Number(notebookId),
+      },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        created_at: true,
+      },
+    });
+
+    res.status(201).json({ note });
+
+  } catch (error) {
+    console.error("Create note error:", error);
+    res.status(500).json({ message: "Failed to create note" });
+  }
+};
+
+function deepMerge(oldData, newData) {
+  if (
+    typeof oldData !== 'object' ||
+    typeof newData !== 'object' ||
+    Array.isArray(oldData) ||
+    Array.isArray(newData)
+  ) {
+    return newData;
+  }
+
+  const result = { ...oldData };
+
+  for (const key of Object.keys(newData)) {
+    result[key] =
+      key in oldData
+        ? deepMerge(oldData[key], newData[key])
+        : newData[key];
+  }
+
+  return result;
+}
+
+
+export const updateNote = async (req, res) => {
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;
+    const { noteId } = req.params;
+    const { title, content } = req.body;
+
+    // 1. Get note + ownership check
+    const note = await prisma.note.findFirst({
+      where: {
+        id: Number(noteId),
+        notebooks: {
+          owner_id: userId,
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+      },
+    });
+
+    if (!note) {
+      return res.status(404).json({ message: "Note not found" });
+    }
+
+    // 2. Merge JSON content (partial update)
+    let mergedContent = note.content;
+
+    if (content) {
+      mergedContent = deepMerge(note.content || {}, content);
+    }
+
+    // 3. Update note
+    const updatedNote = await prisma.note.update({
+      where: { id: note.id },
+      data: {
+        title: title ?? note.title,
+        content: mergedContent,
+        updated_at: new Date(),
+      },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        updated_at: true,
+      },
+    });
+
+    res.json({ note: updatedNote });
+
+  } catch (error) {
+    console.error("Update note error:", error);
+    res.status(500).json({ message: "Failed to update note" });
+  }
+};
+

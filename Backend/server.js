@@ -22,9 +22,13 @@ app.use(cors({
 
 import authRouter from './routes/auth.routes.js';
 import notebookRouter from './routes/notebook.routes.js';
+import documentRouter from "./routes/document.routes.js";
+import noteRouter from './routes/note.routes.js';
 
 app.use("/auth",authRouter);
 app.use("/",notebookRouter);
+app.use("/",documentRouter);
+app.use("/",noteRouter);
 
 /* -------------------- START -------------------- */
 app.listen(4000, () => {

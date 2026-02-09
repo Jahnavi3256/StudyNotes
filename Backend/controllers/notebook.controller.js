@@ -1,13 +1,6 @@
 import 'dotenv/config';
-import express from 'express';
 import axios from 'axios';
-import { Pool } from 'pg';
-import cookieParser from 'cookie-parser';
-import jwt from 'jsonwebtoken';
-import { randomBytes } from 'crypto';
-import cors from 'cors';
 import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
 import {PrismaClient} from '@prisma/client';
 
 const {
@@ -96,11 +89,13 @@ async function createNotebookFolder(accessToken, parentFolderId, notebookTitle) 
       title: title,
       colour: colour || '#6366f1',
       owner_id: userId,
+      folder_id: folderId,
     },
     select:{
       id: true,
       title: true,
       colour: true,
+      folder_id: true,
       created_at: true,
     }
   });
@@ -121,5 +116,52 @@ async function createNotebookFolder(accessToken, parentFolderId, notebookTitle) 
   }
 
 };
+
+export const getAllNotebooks = async (req, res) => {
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;
+
+    const notebooks = await prisma.notebook.findMany({
+      where: {
+        owner_id: userId,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+      select: {
+        id: true,
+        title: true,
+        colour: true,
+        folder_id: true,
+        created_at: true,
+        updated_at: true,
+        _count: {
+          select: {
+            note: true, // number of notes per notebook
+          },
+        },
+      },
+    });
+
+    res.json({
+      notebooks: notebooks.map(n => ({
+        id: n.id,
+        title: n.title,
+        colour: n.colour,
+        folder_id: n.folder_id,
+        created_at: n.created_at,
+        updated_at: n.updated_at,
+        note_count: n._count.note,
+      })),
+    });
+
+  } catch (error) {
+    console.error("Get notebooks error:", error);
+    res.status(500).json({ message: "Failed to fetch notebooks" });
+  }
+};
+
 
 
