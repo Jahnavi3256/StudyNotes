@@ -163,5 +163,36 @@ export const getAllNotebooks = async (req, res) => {
   }
 };
 
+export const getRecentNotebooks = async (req, res) => {
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;
+
+    const notebooks = await prisma.notebook.findMany({
+      where: {
+        owner_id: userId,
+      },
+      orderBy: {
+        updated_at: 'desc',
+      },
+      take: 6,
+      select: {
+        id: true,
+        title: true,
+        colour: true,
+        folder_id: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+
+    res.json({ notebooks });
+  } catch (error) {
+    console.error("Get recent notebooks error:", error);
+    res.status(500).json({ message: "Failed to fetch recent notebooks" });
+  }
+};
+
 
 
