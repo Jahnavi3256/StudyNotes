@@ -1,10 +1,10 @@
-import {express} from "express";
-import { upload } from "../utils/multer";
-import { uploadDocument } from "../controllers/document.controller";
-import { authVerify } from "../middlewares/verify.middleware";
+import express from "express";
+import { upload } from "../utils/multer.js";
+import { uploadDocument } from "../controllers/document.controller.js";
+import { authVerify } from "../middlewares/verify.middleware.js";
 
 const documentRouter = express.Router();
 
-documentRouter.Router("/uplaod-document").post(authVerify,upload.single('file'),uploadDocument);
+documentRouter.route("/uplaod-document").post(authVerify,upload.single('file'),uploadDocument);
 
 export default documentRouter;

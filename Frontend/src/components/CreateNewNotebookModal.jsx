@@ -1,8 +1,32 @@
+import { Notebook } from "lucide-react";
 import { useState } from "react";
+import axios from "axios";
 
 export default   function CreateNewNotebookModal(props) {
 
-     const [selectedColor, setSelectedColor] = useState("#FF5733");
+    const [selectedColor, setSelectedColor] = useState("#FF5733");
+    const [creating,setCreating] = useState(false);
+    const [notebookName, setNotebookName] = useState("");
+    const [error,setError] = useState("");
+
+    async function createNewNoteBook(name,colour) {
+        if (!notebookName.trim()) {
+            setError("Enter name of new notebook");
+            return;
+        }
+        setError("");
+        setCreating(true);
+        console.log(name, colour)
+        try {
+            const res = await axios.post("http://localhost:4000/new-notebook", {
+                title: name,
+                colour: colour
+            }, { withCredentials: true });
+            console.log(res.data);
+                        props.closeModal();
+        } catch (err) { console.error(err); setError(err.message) } 
+        finally { setCreating(false); }
+    }
   
     return (
         <div>
@@ -23,16 +47,22 @@ export default   function CreateNewNotebookModal(props) {
             </header>
 
             <div className="space-y-5">
+                <div>
+                    {error && (
+                        <div className="text-red-700 text-9">{error}</div>
+                    )}
+                </div>
                 {/* Name Input */}
                 <div className="flex flex-col gap-2">
-                    <label className="text-[10px] uppercase tracking-[0.1em] font-black text-slate-500 ml-1">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-slate-500 ml-1">
                         Notebook Name
                     </label>
                     <input 
                         type="text" 
                         autoFocus
                         placeholder="e.g. Research Vol. 1" 
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FF5733]/50 focus:bg-[#FF5733]/5 transition-all"
+                        className="w-full bg-white/3 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#FF5733]/50 focus:bg-[#FF5733]/5 transition-all"
+                        onChange={(e) => setNotebookName(e.target.value)}
                     /> 
                 </div>
 
@@ -75,9 +105,10 @@ export default   function CreateNewNotebookModal(props) {
                     Cancel
                 </button>
                 <button 
+                type="submit"
+                disabled={creating}
                     onClick={() => {
-                        // Pass selectedColor to your API call here
-                        props.closeModal();
+                        createNewNoteBook(notebookName,selectedColor);  
                     }}
                     className="flex-2 bg-[#FF5733] hover:bg-[#ff6a4d] text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase tracking-wider shadow-lg shadow-[#FF5733]/20 transition-all active:scale-95"
                 >

@@ -1,7 +1,7 @@
-import { createNote } from "../controllers/note.controller";
-import { updateNote } from "../controllers/note.controller";
-import {express} from 'express';
-import { authVerify } from "../middlewares/verify.middleware";
+import { createNote } from "../controllers/note.controller.js";
+import { updateNote } from "../controllers/note.controller.js";
+import express from 'express';
+import { authVerify } from "../middlewares/verify.middleware.js";
 
 const noteRouter = express.Router();
 
