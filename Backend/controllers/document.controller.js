@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import {PrismaClient} from '@prisma/client';
+import cloudinary from '../utils/cloudinary.js';
+import streamifier from 'streamifier';
 
 
 const {
@@ -117,5 +119,97 @@ export const uploadDocument = async (req, res) => {
   } catch (error) {
     console.error("Upload document error:", error);
     res.status(500).json({ message: "Failed to upload document" });
+  }
+};
+
+export const uploadDocumentToCloudinary = async (req, res) => {
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;              // set by auth middleware
+    const { notebookId } = req.body;      // target notebook
+    const file = req.file;                // from multer (memoryStorage)
+
+    if (!file) {
+      return res.status(400).json({ message: 'File is required' });
+    }
+
+    if (!notebookId) {
+      return res.status(400).json({ message: 'notebookId is required' });
+    }
+
+    const notebookIdNum = Number(notebookId);
+    if (Number.isNaN(notebookIdNum)) {
+      return res.status(400).json({ message: 'Invalid notebookId' });
+    }
+
+    // 1. Verify notebook exists and belongs to the user
+    const notebook = await prisma.notebook.findFirst({
+      where: {
+        id: notebookIdNum,
+        owner_id: userId,
+      },
+      select: { id: true },
+    });
+
+    if (!notebook) {
+      return res.status(404).json({ message: 'Notebook not found' });
+    }
+
+    // 2. Upload file buffer to Cloudinary (using upload_stream + streamifier)
+    const streamUpload = () =>
+      new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: `notebooks/${notebookIdNum}`, // optional folder structure
+            resource_type: 'auto',
+            type: "upload",
+          },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+
+        streamifier.createReadStream(file.buffer).pipe(stream);
+      });
+
+    const uploadResult = await streamUpload();
+
+    // 3. Store document info in DB (Document model)
+    const document = await prisma.document.create({
+      data: {
+        filename: file.originalname,                  // String
+        file_url: uploadResult.secure_url,           // String
+        file_size: BigInt(file.size),                // BigInt
+        mime_type: file.mimetype,                    // String
+        page_count: null,                            // Int? (unknown at upload)
+        uploader_id: userId,                         // Int
+        notebook_id: notebookIdNum,                  // Int
+      },
+      select: {
+        id: true,
+        filename: true,
+        file_url: true,
+        mime_type: true,
+        page_count: true,
+        uploaded_at: true,
+        uploader_id: true,
+        notebook_id: true,
+      },
+    });
+
+    // 4. Respond with DB record + Cloudinary metadata
+    return res.status(201).json({
+      document,
+      cloudinary: {
+        public_id: uploadResult.public_id,
+        url: uploadResult.secure_url,
+        resource_type: uploadResult.resource_type,
+      },
+    });
+  } catch (error) {
+    console.error('Upload document to Cloudinary error:', error);
+    return res.status(500).json({ message: 'Failed to upload document' });
   }
 };

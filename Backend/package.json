@@ -13,6 +13,7 @@
   "dependencies": {
     "@prisma/client": "^6.19.2",
     "axios": "^1.13.2",
+    "cloudinary": "^2.9.0",
     "cookie-parser": "^1.4.7",
     "cookie-session": "^2.1.1",
     "cors": "^2.8.5",
@@ -23,7 +24,8 @@
     "googleapis": "^168.0.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "prisma": "^6.19.2"

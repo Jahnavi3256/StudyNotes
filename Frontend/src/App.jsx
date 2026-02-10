@@ -26,6 +26,7 @@ function App() {
         <Route path="/editor" element={<Editor/>} />
         <Route path="/get-started" element={<GetStarted/>} />
         <Route path="/auth-success" element={<AuthSuccess/>} />
+         <Route path="/notebook/:id" element={<Viewer/>} />
       </Routes>
     </BrowserRouter>
     </>

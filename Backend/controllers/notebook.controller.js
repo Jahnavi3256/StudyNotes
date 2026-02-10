@@ -194,5 +194,92 @@ export const getRecentNotebooks = async (req, res) => {
   }
 };
 
+export const getNotebookById = async (req, res) => {
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;
+    const notebookId = parseInt(req.params.id);
+
+    if (!notebookId || isNaN(notebookId)) {
+      return res.status(400).json({ message: "Invalid notebook ID" });
+    }
+
+    // Verify notebook ownership and get notebook info
+    const notebook = await prisma.notebook.findFirst({
+      where: {
+        id: notebookId,
+        owner_id: userId,
+      },
+      select: {
+        id: true,
+        title: true,
+        colour: true,
+        folder_id: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+
+    if (!notebook) {
+      return res.status(404).json({ message: "Notebook not found" });
+    }
+
+    // Fetch documents for this notebook
+    const documents = await prisma.document.findMany({
+      where: {
+        notebook_id: notebookId,
+      },
+      select: {
+        id: true,
+        filename: true,
+        file_url: true,
+        mime_type: true,
+        page_count: true,
+        uploaded_at: true,
+        uploader_id: true,
+      },
+      orderBy: {
+        uploaded_at: 'desc',
+      },
+    });
+
+    // Fetch notes for this notebook
+    const notes = await prisma.note.findMany({
+      where: {
+        notebook_id: notebookId,
+      },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        created_at: true,
+        updated_at: true,
+      },
+      orderBy: {
+        updated_at: 'desc',
+      },
+    });
+
+    function serializeBigInt(data) {
+    return JSON.parse(
+    JSON.stringify(data, (_, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    )
+  );
+}
+
+    res.json({
+      notebook,
+      documents,
+      notes,
+    });
+
+  } catch (error) {
+    console.error("Get notebook by ID error:", error);
+    res.status(500).json({ message: "Failed to fetch notebook" });
+  }
+};
+
 
 
