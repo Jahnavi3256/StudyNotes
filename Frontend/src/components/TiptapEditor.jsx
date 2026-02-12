@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -15,10 +15,12 @@ import {
   FaListUl, FaListOl, FaAlignLeft, FaAlignCenter, FaImage, FaTerminal, FaHeading, FaPlus, FaTimes
 } from "react-icons/fa";
 
-const TiptapEdited = ({ note, allNotes }) => {
-  // Manage multiple tabs/notes in local state
-  const [tabs, setTabs] = useState([note]);
-  const [activeTabId, setActiveTabId] = useState(note?._id);
+const DEBOUNCE_MS = 800;
+
+const TiptapEdited = ({ note, onNoteUpdated }) => {
+  const [saveStatus, setSaveStatus] = useState("idle");
+  const saveTimeoutRef = useRef(null);
+  const isTempNote = !note?.id || (typeof note.id === "string" && String(note.id).startsWith("temp-"));
 
   const editor = useEditor({
     extensions: [
@@ -32,7 +34,7 @@ const TiptapEdited = ({ note, allNotes }) => {
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({ placeholder: "Write something brilliant..." }),
     ],
-    content: note?.content || "",
+    content: note?.content ?? "",
     editorProps: {
       attributes: {
         class: "prose prose-invert max-w-none focus:outline-none min-h-full p-6 text-gray-300 " +
@@ -42,52 +44,58 @@ const TiptapEdited = ({ note, allNotes }) => {
                "[&_pre]:bg-[#2a2d30] [&_pre]:p-4 [&_pre]:rounded-lg [&_code]:text-emerald-400",
       },
     },
+    onUpdate: () => {
+      setSaveStatus("saving");
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(() => {
+        saveTimeoutRef.current = null;
+        if (!editor || isTempNote) {
+          setSaveStatus("idle");
+          return;
+        }
+        const json = editor.getJSON();
+        setSaveStatus("saving");
+        axios
+          .patch(
+            `http://localhost:4000/update-note/${note.id}`,
+            { content: json },
+            { withCredentials: true }
+          )
+          .then(() => {
+            setSaveStatus("saved");
+            onNoteUpdated?.(note.id, json);
+            setTimeout(() => setSaveStatus("idle"), 2000);
+          })
+          .catch((err) => {
+            console.error("Auto-save error:", err.response?.data || err.message);
+            setSaveStatus("idle");
+          });
+      }, DEBOUNCE_MS);
+    },
   });
 
-  // Update editor content when active tab changes
+  // Sync editor content when note changes (e.g. tab switch or external update)
   useEffect(() => {
-    if (editor && activeTabId) {
-      const activeNote = tabs.find(t => t._id === activeTabId);
-      editor.commands.setContent(activeNote?.content || "");
+    if (!editor || !note) return;
+    const noteContent = note.content ?? "";
+    const current = editor.getJSON();
+    if (JSON.stringify(current) !== JSON.stringify(noteContent)) {
+      editor.commands.setContent(noteContent);
     }
-  }, [activeTabId, editor]);
+  }, [note?.id, editor]);
 
-  const addNewNote = () => {
-    const newNote = {
-      _id: Date.now().toString(), // Temporary ID until saved to DB
-      title: "Untitled Note",
-      content: ""
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-    setTabs([...tabs, newNote]);
-    setActiveTabId(newNote._id);
-  };
-
-  const closeTab = (e, id) => {
-    e.stopPropagation();
-    const filteredTabs = tabs.filter(t => t._id !== id);
-    setTabs(filteredTabs);
-    if (activeTabId === id && filteredTabs.length > 0) {
-      setActiveTabId(filteredTabs[filteredTabs.length - 1]._id);
-    }
-  };
-
-  const saveEditedContent = async () => {
-    try {
-      const json = editor.getJSON();
-      await axios.put(`http://localhost:4000/api/notes/${activeTabId}`, { content: json });
-      if (allNotes) await allNotes();
-      alert("Note Saved!");
-    } catch (error) {
-      console.error("Save error:", error);
-    }
-  };
+  }, []);
 
   if (!editor) return null;
 
   const Btn = ({ onClick, active = false, children, title }) => (
     <button
       onClick={(e) => { e.preventDefault(); onClick(); }}
-      title={title}
+      //title={title}
       className={`p-2 transition-all rounded hover:bg-white/10 ${active ? "text-emerald-400 bg-white/5" : "text-gray-400"}`}
     >
       {children}
@@ -96,32 +104,6 @@ const TiptapEdited = ({ note, allNotes }) => {
 
   return (
     <div className="flex flex-col h-full w-full bg-[#121212] border-l border-white/10 overflow-hidden">
-      
-      {/* TABS BAR (Notepad/Browser style) */}
-      <div className="flex items-center bg-[#0d0d0d] overflow-x-auto scrollbar-hide border-b border-white/10">
-        {tabs.map((t) => (
-          <div
-            key={t._id}
-            onClick={() => setActiveTabId(t._id)}
-            className={`flex items-center gap-2 px-4 py-2 cursor-pointer border-r border-white/5 min-w-[120px] max-w-[200px] transition-colors ${
-              activeTabId === t._id ? "bg-[#1a1b1e] text-emerald-400 border-t-2 border-t-emerald-500" : "text-gray-500 hover:bg-white/5"
-            }`}
-          >
-            <span className="truncate text-xs font-medium">{t.title || "Untitled"}</span>
-            <FaTimes 
-                size={10} 
-                className="hover:text-red-400 mt-0.5" 
-                onClick={(e) => closeTab(e, t._id)}
-            />
-          </div>
-        ))}
-        <button 
-          onClick={addNewNote}
-          className="p-3 text-gray-500 hover:text-white transition-colors"
-        >
-          <FaPlus size={12} />
-        </button>
-      </div>
 
       {/* TOOLBAR */}
       <div className="flex flex-wrap items-center gap-1 p-2 bg-[#1a1b1e] border-b border-white/5 shadow-xl">
@@ -148,16 +130,21 @@ const TiptapEdited = ({ note, allNotes }) => {
           <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive("codeBlock")}><FaTerminal size={12} /></Btn>
         </div>
 
-        <button
-          onClick={saveEditedContent}
-          className="ml-auto bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-wider transition-colors"
-        >
-          Save Tab
-        </button>
+        {/* STATUS INDICATOR */}
+        <div className="ml-auto px-4">
+          {saveStatus === "saving" && (
+            <span className="text-[10px] text-amber-500 font-bold animate-pulse uppercase tracking-widest">Saving...</span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">Saved</span>
+          )}
+        </div>
       </div>
 
       {/* EDITOR CONTENT AREA */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto cursor-text"
+      onClick={() => editor.chain().focus().run()}
+      >
         <EditorContent editor={editor} />
       </div>
     </div>

@@ -19,6 +19,9 @@ export default function Viewer() {
   const notebook = location.state.notebook;
   const fileInputRef = useRef(null);
 
+  const [currentNoteId, setCurrentNoteId] = useState(null);
+  const [editingTabId, setEditingTabId] = useState(null);
+
 
    useEffect(() => {
     async function loadNotebook() {
@@ -28,7 +31,16 @@ export default function Viewer() {
           { withCredentials: true }
         );
         setDocs(res.data.documents);
-        setNotes(res.data.notes);
+        // --- NOTE DEFAULTING LOGIC ---
+        if (res.data.notes.length > 0) {
+          setNotes(res.data.notes);
+          setCurrentNoteId(res.data.notes[0].id); // Prisma uses 'id', not '_id'
+        } else {
+          // If no notes, create a local dummy or trigger a "New Note" API call
+          const defaultNote = { id: 'temp-1', title: 'Untitled Note', content: {} };
+          setNotes([defaultNote]);
+          setCurrentNoteId('temp-1');
+        }
 
         console.log(res.data.documents);
         console.log(res.data.notes);
@@ -43,9 +55,70 @@ export default function Viewer() {
     loadNotebook();
   }, [id]);
 
+  const handleAddNote = async () => {
+    // 1. Max Limit Check
+    if (notes.length >= 5) {
+      alert("Maximum of 5 notes allowed. Please delete a note to add a new one.");
+      return;
+    }
+
+    // 2. Find the first available "Untitled Note X" title
+    let nextNumber = 1;
+    const existingTitles = notes.map(n => n.title);
+    
+    // This will find 1 if Untitled 1 is missing, even if Untitled 2 exists
+    while (existingTitles.includes(`Untitled Note ${nextNumber}`)) {
+      nextNumber++;
+    }
+    
+    const newTitle = `Untitled Note ${nextNumber}`;
+
+    // 3. Construct the payload for your Prisma controller
+    // Note: Your controller expects notebookId, title, and optionally content
+    const payload = {
+      notebookId: id, // from useParams
+      title: newTitle,
+      content: {} 
+    };
+
+    try {
+      const res = await axios.post(
+        "http://localhost:4000/create-note", // Ensure this matches your route
+        payload,
+        { withCredentials: true }
+      );
+
+      // 4. Update state with the returned 'note' object from Prisma
+      // Your backend returns: res.data.note
+      const savedNote = res.data.note;
+      
+      setNotes(prev => [...prev, savedNote]);
+      setCurrentNoteId(savedNote.id); // Prisma uses 'id', not '_id'
+
+    } catch (err) {
+      console.error("Failed to create note:", err.response?.data?.message || err.message);
+    }
+  };
+
   const handleButtonClick = () => {
     fileInputRef.current.click();
   }
+
+  const handleRenameNote = async (noteId, newTitle) => {
+    setEditingTabId(null);
+    if (!newTitle.trim()) return;
+    // Skip API for temp (unsaved) notes
+    const isTempNote = typeof noteId === "string" && String(noteId).startsWith("temp-");
+    
+    setNotes(prev => prev.map(n => n.id === noteId ? { ...n, title: newTitle.trim() } : n));
+    
+    if (isTempNote) return;
+    try {
+      await axios.patch(`http://localhost:4000/update-note/${noteId}`, { title: newTitle.trim() }, { withCredentials: true });
+    } catch (err) {
+      console.error("Rename failed", err);
+    }
+  };
 
   const handleFileChange = async (event)=> {
     const file = event.target.files[0];
@@ -240,14 +313,71 @@ const handleMouseMove = useCallback((e) => {
 {/* ---------------------------------------------------------------------------------------------------------------------------------------- */}
         {/* 3. EDITOR (FLEX-1) */}
         <section className="flex-1 bg-[#0f0f0f] relative min-w-0">
-          <div className="h-full overflow-y-auto">
+          {/* TABS BAR */}
+          <div className="flex items-center bg-[#0d0d0d] border-b border-white/5 overflow-x-auto shrink-0 scrollbar-hide">
+            {notes.map((note) => (
+              <div
+                key={note.id}
+                onDoubleClick={() => setEditingTabId(note.id)}
+                onClick={() => setCurrentNoteId(note.id)}
+                className={`flex items-center gap-3 px-4 py-2 cursor-pointer border-r border-white/5 min-w-[130px] transition-all relative ${
+                  currentNoteId === note.id ? "bg-[#161616] text-emerald-400 border-t-2 border-t-emerald-500" : "text-gray-500 hover:bg-white/5"
+                }`}
+              >
+                {editingTabId === note.id ? (
+                  <input
+                    autoFocus
+                    className="bg-transparent outline-none border-b border-emerald-500 w-full text-xs"
+                    defaultValue={note.title}
+                    onBlur={(e) => handleRenameNote(note.id, e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleRenameNote(note.id, e.target.value)}
+                  />
+                ) : (
+                  <span className="text-[11px] truncate select-none font-medium">{note.title || "Untitled Note"}</span>
+                )}
+              </div>
+            ))}
+            <button 
+            className="p-2 px-4 text-gray-600 hover:text-emerald-500 text-lg"
+            onClick={handleAddNote}>+</button>
+          </div> 
+          {/* ISOLATED EDITOR INSTANCES */}
+
+          <div className="flex-1 relative h-full">
+            {notes.map((note) => (
+              <div 
+                key={note.id} 
+                className={`absolute inset-0 ${
+                  currentNoteId === note.id 
+                    ? "opacity-100 z-20 pointer-events-auto" 
+                    : "opacity-0 z-0 pointer-events-none"
+                }`}
+              >
+                {/* CRITICAL: Only render the editor content if it's the active note 
+                  OR use a conditional to ensure the editor re-syncs.
+                */}
+                {currentNoteId === note.id && (
+                  <TiptapEdited
+                    note={note}
+                    onNoteUpdated={(updatedNoteId, content) => {
+                      setNotes((prev) =>
+                        prev.map((n) => (n.id === updatedNoteId ? { ...n, content } : n))
+                      );
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          
+          {/* <div className="h-full overflow-y-auto">
             <TiptapEdited
           note={currentNote} 
           editing={isEditing} 
           setEditing={setIsEditing}
           allNotes={() => console.log("Refreshing notes list...")}
         />
-          </div>
+          </div> */}
           
           {/* CHAT INTERFACE */}
           {showChat && (

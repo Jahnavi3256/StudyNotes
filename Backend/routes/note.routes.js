@@ -6,6 +6,6 @@ import { authVerify } from "../middlewares/verify.middleware.js";
 const noteRouter = express.Router();
 
 noteRouter.route("/create-note").post(authVerify,createNote);
-noteRouter.route("/update-note").patch(authVerify,updateNote);
+noteRouter.route("/update-note/:id").patch(authVerify,updateNote);
 
 export default noteRouter;

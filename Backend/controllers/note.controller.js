@@ -78,13 +78,13 @@ export const updateNote = async (req, res) => {
 
   try {
     const userId = req.user;
-    const { noteId } = req.params;
+    const { id } = req.params;
     const { title, content } = req.body;
 
     // 1. Get note + ownership check
     const note = await prisma.note.findFirst({
       where: {
-        id: Number(noteId),
+        id: Number(id),
         notebooks: {
           owner_id: userId,
         },
