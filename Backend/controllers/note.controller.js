@@ -131,3 +131,56 @@ export const updateNote = async (req, res) => {
   }
 };
 
+
+
+
+export const renameNote = async (req, res) => {
+
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;        // from auth middleware
+    const { id } = req.params;      // /update-note/:id
+    const { title } = req.body;
+
+    if (!title || !title.trim()) {
+      return res
+        .status(400)
+        .json({ message: "Note title is required" });
+    }
+
+    // Check ownership and existence
+    const note = await prisma.note.findFirst({
+      where: {
+        id: Number(id),
+        notebooks: {
+          owner_id: userId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!note) {
+      return res.status(404).json({ message: "Note not found" });
+    }
+
+    // Update only the title
+    const updatedNote = await prisma.note.update({
+      where: { id: note.id },
+      data: {
+        title: title.trim(),
+        updated_at: new Date(),
+      },
+      select: {
+        id: true,
+        title: true,
+        updated_at: true,
+      },
+    });
+
+    res.json({ note: updatedNote });
+  } catch (error) {
+    console.error("Rename note error:", error);
+    res.status(500).json({ message: "Failed to rename note" });
+  }
+};

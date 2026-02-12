@@ -114,7 +114,7 @@ export default function Viewer() {
     
     if (isTempNote) return;
     try {
-      await axios.patch(`http://localhost:4000/update-note/${noteId}`, { title: newTitle.trim() }, { withCredentials: true });
+      await axios.put(`http://localhost:4000/rename-note/${noteId}`, { title: newTitle.trim() }, { withCredentials: true });
     } catch (err) {
       console.error("Rename failed", err);
     }
