@@ -12,6 +12,7 @@
   "dependencies": {
     "@lexical/react": "^0.38.2",
     "@tailwindcss/vite": "^4.1.17",
+    "@tiptap/extension-collaboration": "^3.19.0",
     "@tiptap/extension-color": "^3.11.1",
     "@tiptap/extension-font-family": "^3.17.1",
     "@tiptap/extension-heading": "^3.11.1",
@@ -31,6 +32,7 @@
     "@tiptap/extension-youtube": "^3.11.1",
     "@tiptap/react": "^3.17.1",
     "@tiptap/starter-kit": "^3.17.1",
+    "@tiptap/y-tiptap": "^3.0.2",
     "axios": "^1.13.2",
     "emoji-picker-react": "^4.16.1",
     "lexical": "^0.38.2",
@@ -40,7 +42,9 @@
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.13.0",
+    "socket.io-client": "^4.8.3",
     "tailwindcss": "^4.1.17",
+    "yjs": "^13.6.29",
     "zustand": "^5.0.10"
   },
   "devDependencies": {

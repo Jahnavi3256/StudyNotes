@@ -19,8 +19,43 @@ const DEBOUNCE_MS = 800;
 
 const TiptapEdited = ({ note, onNoteUpdated }) => {
   const [saveStatus, setSaveStatus] = useState("idle");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const saveTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const editorRef = useRef(null);
   const isTempNote = !note?.id || (typeof note.id === "string" && String(note.id).startsWith("temp-"));
+
+  const handleImageUpload = async (file) => {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return null;
+    }
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await axios.post(
+        'http://localhost:4000/upload-note-image',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          withCredentials: true,
+        }
+      );
+
+      return res.data.url;
+    } catch (error) {
+      console.error('Image upload error:', error);
+      alert('Failed to upload image. Please try again.');
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const editor = useEditor({
     extensions: [
@@ -29,7 +64,10 @@ const TiptapEdited = ({ note, onNoteUpdated }) => {
       TextStyle,
       FontFamily,
       Highlight,
-      Image,
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+      }),
       Link.configure({ openOnClick: false }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({ placeholder: "Write something brilliant..." }),
@@ -41,7 +79,47 @@ const TiptapEdited = ({ note, onNoteUpdated }) => {
                "[&_h1]:text-3xl [&_h1]:font-bold [&_h2]:text-2xl [&_h3]:text-xl " +
                "[&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 " +
                "[&_blockquote]:border-l-4 [&_blockquote]:border-emerald-500 [&_blockquote]:pl-4 [&_blockquote]:italic " +
-               "[&_pre]:bg-[#2a2d30] [&_pre]:p-4 [&_pre]:rounded-lg [&_code]:text-emerald-400",
+               "[&_pre]:bg-[#2a2d30] [&_pre]:p-4 [&_pre]:rounded-lg [&_code]:text-emerald-400 " +
+               "[&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-4",
+      },
+      handlePaste: (view, event) => {
+        const items = Array.from(event.clipboardData?.items || []);
+        const imageItem = items.find(item => item.type.startsWith('image/'));
+
+        if (imageItem) {
+          event.preventDefault();
+          const file = imageItem.getAsFile();
+          if (file) {
+            const currentEditor = editorRef.current || editor;
+            if (currentEditor) {
+              handleImageUpload(file).then((url) => {
+                if (url && currentEditor) {
+                  currentEditor.chain().focus().setImage({ src: url }).run();
+                }
+              });
+            }
+          }
+          return true;
+        }
+        return false;
+      },
+      handleDrop: (view, event) => {
+        const files = Array.from(event.dataTransfer?.files || []);
+        const imageFile = files.find(file => file.type.startsWith('image/'));
+
+        if (imageFile) {
+          event.preventDefault();
+          const currentEditor = editorRef.current || editor;
+          if (currentEditor) {
+            handleImageUpload(imageFile).then((url) => {
+              if (url && currentEditor) {
+                currentEditor.chain().focus().setImage({ src: url }).run();
+              }
+            });
+          }
+          return true;
+        }
+        return false;
       },
     },
     onUpdate: () => {
@@ -85,6 +163,12 @@ const TiptapEdited = ({ note, onNoteUpdated }) => {
   }, [note?.id, editor]);
 
   useEffect(() => {
+    if (editor) {
+      editorRef.current = editor;
+    }
+  }, [editor]);
+
+  useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
@@ -124,10 +208,40 @@ const TiptapEdited = ({ note, onNoteUpdated }) => {
           <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")}><FaListOl size={12} /></Btn>
         </div>
 
-        <div className="flex items-center gap-0.5 px-1">
+        <div className="flex items-center gap-0.5 px-1 border-r border-white/10">
           <Btn onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })}><FaAlignLeft size={12} /></Btn>
           <Btn onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })}><FaAlignCenter size={12} /></Btn>
           <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive("codeBlock")}><FaTerminal size={12} /></Btn>
+        </div>
+
+        <div className="flex items-center gap-0.5 px-1">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                handleImageUpload(file).then((url) => {
+                  if (url) {
+                    editor.chain().focus().setImage({ src: url }).run();
+                  }
+                });
+              }
+              e.target.value = ''; // Reset input
+            }}
+          />
+          <Btn 
+            onClick={() => fileInputRef.current?.click()}
+            title="Insert Image"
+          >
+            {uploadingImage ? (
+              <div className="w-3 h-3 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
+            ) : (
+              <FaImage size={12} />
+            )}
+          </Btn>
         </div>
 
         {/* STATUS INDICATOR */}
