@@ -1,6 +1,28 @@
 import 'dotenv/config';
 import {PrismaClient} from '@prisma/client';
 
+async function userHasNotebookAccess(prisma, userId, notebookId) {
+  const notebook = await prisma.notebook.findUnique({
+    where: { id: notebookId },
+    select: { id: true, owner_id: true },
+  });
+
+  if (!notebook) return null;
+  if (notebook.owner_id === userId) return notebook;
+
+  const membership = await prisma.notebookMember.findUnique({
+    where: {
+      notebook_id_user_id: {
+        notebook_id: notebookId,
+        user_id: userId,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (!membership) return null;
+  return notebook;
+}
 
 export const createNote = async (req, res) => {
   const prisma = new PrismaClient();
@@ -10,18 +32,21 @@ export const createNote = async (req, res) => {
     const { notebookId } = req.body; // use parameters here
     const { title, content } = req.body;
 
+    if (!notebookId) {
+      return res.status(400).json({ message: "notebookId is required" });
+    }
+
     if (!title) {
       return res.status(400).json({ message: "Note title is required" });
     }
 
-    // 1. Verify notebook ownership
-    const notebook = await prisma.notebook.findFirst({
-      where: {
-        id: Number(notebookId),
-        owner_id: userId,
-      },
-      select: { id: true },
-    });
+    const notebookIdNum = Number(notebookId);
+    if (Number.isNaN(notebookIdNum)) {
+      return res.status(400).json({ message: "Invalid notebookId" });
+    }
+
+    // 1. Verify notebook access (owner or member)
+    const notebook = await userHasNotebookAccess(prisma, userId, notebookIdNum);
 
     if (!notebook) {
       return res.status(404).json({ message: "Notebook not found" });
@@ -32,7 +57,7 @@ export const createNote = async (req, res) => {
       data: {
         title,
         content: content || {},
-        notebook_id: Number(notebookId),
+        notebook_id: notebookIdNum,
       },
       select: {
         id: true,
@@ -81,12 +106,21 @@ export const updateNote = async (req, res) => {
     const { id } = req.params;
     const { title, content } = req.body;
 
-    // 1. Get note + ownership check
+    // 1. Get note + access check (owner or member)
     const note = await prisma.note.findFirst({
       where: {
         id: Number(id),
         notebooks: {
-          owner_id: userId,
+          OR: [
+            { owner_id: userId },
+            {
+              notebookMembers: {
+                some: {
+                  user_id: userId,
+                },
+              },
+            },
+          ],
         },
       },
       select: {
@@ -149,12 +183,21 @@ export const renameNote = async (req, res) => {
         .json({ message: "Note title is required" });
     }
 
-    // Check ownership and existence
+    // Check access (owner or member) and existence
     const note = await prisma.note.findFirst({
       where: {
         id: Number(id),
         notebooks: {
-          owner_id: userId,
+          OR: [
+            { owner_id: userId },
+            {
+              notebookMembers: {
+                some: {
+                  user_id: userId,
+                },
+              },
+            },
+          ],
         },
       },
       select: { id: true },

@@ -6,14 +6,17 @@ import HomeHeader from "../components/HomeHeader";
 import NotebookComponent from "../components/NotebookComponent";
 import { Plus, Clock, Book, Activity, ArrowUpRight, ChevronRight } from "lucide-react";
 import CreateNewNotebookModal from "../components/createNewNotebookModal";
+import JoinNotebookModal from "../components/JoinNotebookModal";
 
 export default function Home() {
     const [creating, setCreating] = useState(false);
     const [isModalOpen,setIsModalOpen] = useState(true);
-   
-
+    const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
+
+    const openJoinModal = () => setIsJoinModalOpen(true);
+    const closeJoinModal = () => setIsJoinModalOpen(false);
 
 
     async function createNewNoteBook() {
@@ -35,9 +38,15 @@ export default function Home() {
 
             {/* Create NewNotebook Modal */}
             <CreateNewNotebookModal
-            openModal={openModal}
-            closeModal={closeModal}
-            isModalOpen={isModalOpen}
+              openModal={openModal}
+              closeModal={closeModal}
+              isModalOpen={isModalOpen}
+            />
+
+            {/* Join Notebook Modal */}
+            <JoinNotebookModal
+              isOpen={isJoinModalOpen}
+              onClose={closeJoinModal}
             />
 
             {/* 1. FIXED SIDEBAR */}
@@ -53,9 +62,11 @@ export default function Home() {
                         
                         {/* Welcome Header */}
                         <HomeHeader
-                        openModal={openModal}
-                        creating={creating}
-                        isModalOpen={isModalOpen}/>
+                          openModal={openModal}
+                          creating={creating}
+                          isModalOpen={isModalOpen}
+                          openJoinModal={openJoinModal}
+                        />
 
                         {/* Recent Notebooks Section */}
                         <NotebookComponent/>

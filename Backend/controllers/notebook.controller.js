@@ -8,6 +8,47 @@ const {
   GOOGLE_CLIENT_SECRET, 
 } = process.env;
 
+async function userHasNotebookAccess(prisma, userId, notebookId) {
+  const notebook = await prisma.notebook.findUnique({
+    where: { id: notebookId },
+    select: {
+      id: true,
+      owner_id: true,
+      title: true,
+      colour: true,
+      folder_id: true,
+      created_at: true,
+      updated_at: true,
+    },
+  });
+
+  if (!notebook) return null;
+  if (notebook.owner_id === userId) return notebook;
+
+  const membership = await prisma.notebookMember.findUnique({
+    where: {
+      notebook_id_user_id: {
+        notebook_id: notebookId,
+        user_id: userId,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (!membership) return null;
+  return notebook;
+}
+
+function generateNotebookCode(length = 8) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    const idx = Math.floor(Math.random() * chars.length);
+    code += chars[idx];
+  }
+  return code;
+}
+
 
 async function createNotebookFolder(accessToken, parentFolderId, notebookTitle) {
   const auth = new google.auth.OAuth2();
@@ -171,7 +212,16 @@ export const getRecentNotebooks = async (req, res) => {
 
     const notebooks = await prisma.notebook.findMany({
       where: {
-        owner_id: userId,
+        OR: [
+          { owner_id: userId },
+          {
+            notebookMembers: {
+              some: {
+                user_id: userId,
+              },
+            },
+          },
+        ],
       },
       orderBy: {
         updated_at: 'desc',
@@ -184,13 +234,69 @@ export const getRecentNotebooks = async (req, res) => {
         folder_id: true,
         created_at: true,
         updated_at: true,
+        owner_id: true,
+        code: true,
+      },
+    });
+
+    const shaped = notebooks.map(n => ({
+      id: n.id,
+      title: n.title,
+      colour: n.colour,
+      folder_id: n.folder_id,
+      created_at: n.created_at,
+      updated_at: n.updated_at,
+      owner_id: n.owner_id,
+      code: n.code,
+      isOwner: n.owner_id === userId,
+    }));
+
+    res.json({ notebooks: shaped });
+  } catch (error) {
+    console.error("Get recent notebooks error:", error);
+    res.status(500).json({ message: "Failed to fetch recent notebooks" });
+  }
+};
+
+export const getRecentUserNotebooks = async (req, res) => {
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;
+
+    const notebooks = await prisma.notebook.findMany({
+      where: {
+        OR: [
+          { owner_id: userId },
+          {
+            notebookMembers: {
+              some: {
+                user_id: userId,
+              },
+            },
+          },
+        ],
+      },
+      orderBy: {
+        updated_at: "desc",
+      },
+      take: 6,
+      select: {
+        id: true,
+        title: true,
+        colour: true,
+        folder_id: true,
+        created_at: true,
+        updated_at: true,
+        owner_id: true,
+        code: true,
       },
     });
 
     res.json({ notebooks });
   } catch (error) {
-    console.error("Get recent notebooks error:", error);
-    res.status(500).json({ message: "Failed to fetch recent notebooks" });
+    console.error("Get recent user notebooks error:", error);
+    res.status(500).json({ message: "Failed to fetch user notebooks" });
   }
 };
 
@@ -205,21 +311,8 @@ export const getNotebookById = async (req, res) => {
       return res.status(400).json({ message: "Invalid notebook ID" });
     }
 
-    // Verify notebook ownership and get notebook info
-    const notebook = await prisma.notebook.findFirst({
-      where: {
-        id: notebookId,
-        owner_id: userId,
-      },
-      select: {
-        id: true,
-        title: true,
-        colour: true,
-        folder_id: true,
-        created_at: true,
-        updated_at: true,
-      },
-    });
+    // Verify notebook access (owner or member) and get notebook info
+    const notebook = await userHasNotebookAccess(prisma, userId, notebookId);
 
     if (!notebook) {
       return res.status(404).json({ message: "Notebook not found" });
@@ -281,5 +374,153 @@ export const getNotebookById = async (req, res) => {
   }
 };
 
+export const newNotebookWithCode = async (req, res) => {
+  const prisma = new PrismaClient();
 
+  const { title, colour } = req.body;
+  if (!title) {
+    return res.status(400).json({ message: "Notebook name is required" });
+  }
 
+  const userId = req.user;
+
+  try {
+    const userRes = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        drive_folder_id: true,
+        refresh_token: true,
+      },
+    });
+
+    if (!userRes || !userRes.drive_folder_id || !userRes.refresh_token) {
+      return res.status(400).json({ message: "User is not properly configured for Drive access" });
+    }
+
+    const { drive_folder_id, refresh_token } = userRes;
+
+    const tokenRes = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        refresh_token,
+        grant_type: 'refresh_token',
+      }).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+
+    const accessToken = tokenRes.data.access_token;
+
+    const { folderId, folderUrl } = await createNotebookFolder(
+      accessToken,
+      drive_folder_id,
+      title
+    );
+
+    let notebookRes;
+    let attempts = 0;
+
+    while (attempts < 5) {
+      const code = generateNotebookCode();
+      try {
+        notebookRes = await prisma.notebook.create({
+          data: {
+            title,
+            colour: colour || '#6366f1',
+            owner_id: userId,
+            folder_id: folderId,
+            code,
+          },
+          select: {
+            id: true,
+            title: true,
+            colour: true,
+            folder_id: true,
+            code: true,
+            created_at: true,
+          },
+        });
+        break;
+      } catch (error) {
+        if (error.code === 'P2002' && Array.isArray(error.meta?.target) && error.meta.target.includes('code')) {
+          attempts += 1;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (!notebookRes) {
+      return res.status(500).json({ message: "Failed to generate unique notebook code" });
+    }
+
+    res.status(201).json({
+      notebook: notebookRes,
+      drive: {
+        folderId,
+        folderUrl,
+      },
+    });
+  } catch (error) {
+    console.error("error in creating notebook with code", error);
+    res.status(500).json({
+      message: "Failed to create notebook",
+    });
+  }
+};
+
+export const joinNotebookByCode = async (req, res) => {
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;
+    const { code } = req.body;
+
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ message: "Notebook code is required" });
+    }
+
+    const trimmedCode = code.trim().toUpperCase();
+
+    const notebook = await prisma.notebook.findUnique({
+      where: { code: trimmedCode },
+      select: {
+        id: true,
+        title: true,
+        colour: true,
+        folder_id: true,
+        owner_id: true,
+        code: true,
+      },
+    });
+
+    if (!notebook) {
+      return res.status(404).json({ message: "Invalid notebook code" });
+    }
+
+    await prisma.notebookMember.upsert({
+      where: {
+        notebook_id_user_id: {
+          notebook_id: notebook.id,
+          user_id: userId,
+        },
+      },
+      update: {},
+      create: {
+        notebook_id: notebook.id,
+        user_id: userId,
+      },
+    });
+
+    return res.status(200).json({
+      message: "Joined notebook successfully",
+      notebook,
+    });
+  } catch (error) {
+    console.error("Join notebook by code error:", error);
+    return res.status(500).json({ message: "Failed to join notebook" });
+  }
+};

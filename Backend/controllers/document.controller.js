@@ -9,6 +9,29 @@ const {
   GOOGLE_CLIENT_SECRET,
 } = process.env;
 
+async function userHasNotebookAccess(prisma, userId, notebookId) {
+  const notebook = await prisma.notebook.findUnique({
+    where: { id: notebookId },
+    select: { id: true, owner_id: true, folder_id: true },
+  });
+
+  if (!notebook) return null;
+  if (notebook.owner_id === userId) return notebook;
+
+  const membership = await prisma.notebookMember.findUnique({
+    where: {
+      notebook_id_user_id: {
+        notebook_id: notebookId,
+        user_id: userId,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (!membership) return null;
+  return notebook;
+}
+
 async function uploadFileToNotebookFolder(accessToken, notebookFolderId, file ) {
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
@@ -46,16 +69,13 @@ export const uploadDocument = async (req, res) => {
       return res.status(400).json({ message: "File is required" });
     }
 
-    // 1. Get notebook folder_id (ownership enforced)
-    const notebook = await prisma.notebook.findFirst({
-      where: {
-        id: Number(notebookId),
-        owner_id: userId,
-      },
-      select: {
-        folder_id: true,
-      },
-    });
+    // 1. Get notebook folder_id (owner or member)
+    const notebookIdNum = Number(notebookId);
+    if (Number.isNaN(notebookIdNum)) {
+      return res.status(400).json({ message: "Invalid notebookId" });
+    }
+
+    const notebook = await userHasNotebookAccess(prisma, userId, notebookIdNum);
 
     if (!notebook) {
       return res.status(404).json({ message: "Notebook not found" });
@@ -143,14 +163,8 @@ export const uploadDocumentToCloudinary = async (req, res) => {
       return res.status(400).json({ message: 'Invalid notebookId' });
     }
 
-    // 1. Verify notebook exists and belongs to the user
-    const notebook = await prisma.notebook.findFirst({
-      where: {
-        id: notebookIdNum,
-        owner_id: userId,
-      },
-      select: { id: true },
-    });
+    // 1. Verify notebook exists and user has access (owner or member)
+    const notebook = await userHasNotebookAccess(prisma, userId, notebookIdNum);
 
     if (!notebook) {
       return res.status(404).json({ message: 'Notebook not found' });

@@ -20,6 +20,7 @@ model User {
   drive_folder_id String?
   notebook        Notebook[]
   document        Document[]
+  notebookMembers NotebookMember[]
 }
 
 
@@ -28,13 +29,26 @@ model Notebook {
   title           String    @db.VarChar(255)
   colour          String    @default("#6366f1") @db.VarChar(7)
   folder_id       String?
+  code            String?    @unique @db.VarChar(20)
   created_at      DateTime  @default(now()) @db.Timestamptz(6)
   updated_at      DateTime  @default(now()) @db.Timestamptz(6)
   owner_id        Int
   users           User      @relation(fields: [owner_id], references: [id], onDelete: Cascade)
   note            Note[]
   document        Document[]
+  notebookMembers NotebookMember[]
 
+}
+
+model NotebookMember {
+  id           Int      @id @default(autoincrement())
+  notebook_id  Int
+  user_id      Int
+  joined_at    DateTime @default(now()) @db.Timestamptz(6)
+  notebook     Notebook @relation(fields: [notebook_id], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([notebook_id, user_id])
 }
 
 model Document {

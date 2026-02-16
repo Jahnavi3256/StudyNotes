@@ -18,7 +18,7 @@ export default   function CreateNewNotebookModal(props) {
         setCreating(true);
         console.log(name, colour)
         try {
-            const res = await axios.post("http://localhost:4000/new-notebook", {
+            const res = await axios.post("http://localhost:4000/new-notebook-with-code", {
                 title: name,
                 colour: colour
             }, { withCredentials: true });
