@@ -169,7 +169,7 @@ export const getAllNotebooks = async (req, res) => {
         owner_id: userId,
       },
       orderBy: {
-        created_at: 'desc',
+        updated_at: 'desc',
       },
       select: {
         id: true,
@@ -441,6 +441,8 @@ export const newNotebookWithCode = async (req, res) => {
             folder_id: true,
             code: true,
             created_at: true,
+            updated_at: true,
+            owner_id: true,
           },
         });
         break;

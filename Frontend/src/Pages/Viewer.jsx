@@ -21,6 +21,7 @@ export default function Viewer() {
 
   const [currentNoteId, setCurrentNoteId] = useState(null);
   const [editingTabId, setEditingTabId] = useState(null);
+  const [isAddingNote, setIsAddingNote] = useState(false);
 
 
    useEffect(() => {
@@ -36,10 +37,9 @@ export default function Viewer() {
           setNotes(res.data.notes);
           setCurrentNoteId(res.data.notes[0].id); // Prisma uses 'id', not '_id'
         } else {
-          // If no notes, create a local dummy or trigger a "New Note" API call
-          const defaultNote = { id: 'temp-1', title: 'Untitled Note', content: {} };
-          setNotes([defaultNote]);
-          setCurrentNoteId('temp-1');
+          // Keep notes empty - only show + button
+          setNotes([]);
+          setCurrentNoteId(null);
         }
 
         console.log(res.data.documents);
@@ -81,6 +81,7 @@ export default function Viewer() {
       content: {} 
     };
 
+    setIsAddingNote(true);
     try {
       const res = await axios.post(
         "http://localhost:4000/create-note", // Ensure this matches your route
@@ -97,6 +98,8 @@ export default function Viewer() {
 
     } catch (err) {
       console.error("Failed to create note:", err.response?.data?.message || err.message);
+    } finally {
+      setIsAddingNote(false);
     }
   };
 
@@ -204,7 +207,19 @@ const handleMouseMove = useCallback((e) => {
   }
 }, [isSidebarOpen]);
 
-  if (loading) return <div>Loading notebook...</div>;
+  if (loading) {
+    return (
+      <div className="w-full h-screen bg-[rgb(10,10,10)] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 border-4 border-emerald-500/20 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-transparent border-t-emerald-500 rounded-full animate-spin"></div>
+          </div>
+          <p className="text-gray-400 text-sm font-medium tracking-wide">Loading notebook...</p>
+        </div>
+      </div>
+    );
+  }
   // Inside your Viewer component
   const activeDocument = docs.find(d => (d.id === activeDocId || d._id === activeDocId));
   // Construct the full URL to the file on your backend
@@ -338,36 +353,63 @@ const handleMouseMove = useCallback((e) => {
               </div>
             ))}
             <button 
-            className="p-2 px-4 text-gray-600 hover:text-emerald-500 text-lg"
-            onClick={handleAddNote}>+</button>
+            className="p-2 px-4 text-gray-600 hover:text-emerald-500 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleAddNote}
+            disabled={isAddingNote}
+            >
+              {isAddingNote ? (
+                <div className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
+              ) : (
+                "+"
+              )}
+            </button>
           </div> 
           {/* ISOLATED EDITOR INSTANCES */}
 
           <div className="flex-1 relative h-full">
-            {notes.map((note) => (
-              <div 
-                key={note.id} 
-                className={`absolute inset-0 ${
-                  currentNoteId === note.id 
-                    ? "opacity-100 z-20 pointer-events-auto" 
-                    : "opacity-0 z-0 pointer-events-none"
-                }`}
-              >
-                {/* CRITICAL: Only render the editor content if it's the active note 
-                  OR use a conditional to ensure the editor re-syncs.
-                */}
-                {currentNoteId === note.id && (
-                  <TiptapEdited
-                    note={note}
-                    onNoteUpdated={(updatedNoteId, content) => {
-                      setNotes((prev) =>
-                        prev.map((n) => (n.id === updatedNoteId ? { ...n, content } : n))
-                      );
-                    }}
-                  />
-                )}
+            {isAddingNote ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#0f0f0f]">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="relative w-12 h-12">
+                    <div className="absolute inset-0 border-3 border-emerald-500/20 rounded-full"></div>
+                    <div className="absolute inset-0 border-3 border-transparent border-t-emerald-500 rounded-full animate-spin"></div>
+                  </div>
+                  <p className="text-gray-400 text-xs font-medium">Creating note...</p>
+                </div>
               </div>
-            ))}
+            ) : notes.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-[#0f0f0f]">
+                <div className="flex flex-col items-center gap-3">
+                  <p className="text-gray-500 text-sm font-medium">No notes yet</p>
+                  <p className="text-gray-600 text-xs">Click + to add your first note</p>
+                </div>
+              </div>
+            ) : (
+              notes.map((note) => (
+                <div 
+                  key={note.id} 
+                  className={`absolute inset-0 ${
+                    currentNoteId === note.id 
+                      ? "opacity-100 z-20 pointer-events-auto" 
+                      : "opacity-0 z-0 pointer-events-none"
+                  }`}
+                >
+                  {/* CRITICAL: Only render the editor content if it's the active note 
+                    OR use a conditional to ensure the editor re-syncs.
+                  */}
+                  {currentNoteId === note.id && (
+                    <TiptapEdited
+                      note={note}
+                      onNoteUpdated={(updatedNoteId, content) => {
+                        setNotes((prev) =>
+                          prev.map((n) => (n.id === updatedNoteId ? { ...n, content } : n))
+                        );
+                      }}
+                    />
+                  )}
+                </div>
+              ))
+            )}
           </div>
           
           {/* <div className="h-full overflow-y-auto">

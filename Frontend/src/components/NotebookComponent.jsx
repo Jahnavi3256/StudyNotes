@@ -1,10 +1,10 @@
 import { Plus, Clock, Book, Activity, ArrowUpRight, ChevronRight, Clipboard } from "lucide-react";
-import { useState ,useEffect} from "react";
+import { useState ,useEffect, useImperativeHandle, forwardRef} from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 // call the api to get all notebooks store in an array  and render them one by one 
-export default function NotebookComponent() {
+const NotebookComponent = forwardRef(function NotebookComponent(props, ref) {
 
     const [notebooks,setNotebooks] = useState([]);
     const [loading,setLoading] = useState(false);
@@ -28,6 +28,25 @@ export default function NotebookComponent() {
     
         fetchData();
     }, []);
+
+    // Expose method to add notebook from parent
+    useImperativeHandle(ref, () => ({
+        addNotebook: (notebook) => {
+            // Transform notebook to match the shape expected by recent-notebooks
+            const transformedNotebook = {
+                id: notebook.id,
+                title: notebook.title,
+                colour: notebook.colour,
+                folder_id: notebook.folder_id,
+                code: notebook.code,
+                created_at: notebook.created_at,
+                updated_at: notebook.created_at || new Date().toISOString(), // Use created_at as updated_at for new notebook
+                owner_id: notebook.owner_id,
+                isOwner: true,
+            };
+            setNotebooks(prev => [transformedNotebook, ...prev]);
+        }
+    }));
 
     const handleCopyCode = async (e, code, notebookId) => {
         e.stopPropagation();
@@ -116,4 +135,6 @@ export default function NotebookComponent() {
         </section>  
         
     )
-}
+});
+
+export default NotebookComponent;

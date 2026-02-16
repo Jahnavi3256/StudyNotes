@@ -1,11 +1,9 @@
 import { RiMenu3Line } from "react-icons/ri";
 import { IoMdClose } from "react-icons/io";
-import RecentOption from "../components/RecentOption"
-import { recentdata } from "../Data/recentdata"
-import { sidebardata } from "../Data/sidebardata"
-import SideOption from "../components/SideOption"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { Book } from "lucide-react";
 
 
 
@@ -14,11 +12,37 @@ export default function SideNavbar() {
     const location = useLocation();
     const [isSidebarOpen,setIsSidebarOpen] = useState(false);
     const [isMobileSidebarOpen,setIsMobileSidebarOpen] = useState(false);
+    const [notebooks, setNotebooks] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        async function fetchNotebooks() {
+            setLoading(true);
+            try {
+                const res = await axios.get("http://localhost:4000/all-notebooks", {
+                    withCredentials: true
+                });
+                setNotebooks(res.data.notebooks || []);
+            } catch (err) {
+                console.error("Failed to fetch notebooks:", err);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchNotebooks();
+    }, []);
+
     const handleHamburgerClick = () => {
         setIsSidebarOpen(true);
     }
     const handleCross = () => {
         setIsSidebarOpen(false);
+    }
+
+    const handleNotebookClick = (notebook) => {
+        navigate(`/notebook/${notebook.id}`, {
+            state: { notebook }
+        });
     }
 
 
@@ -32,34 +56,31 @@ export default function SideNavbar() {
                 <div id="side-upper-part" className="w-full bg-[#212121] h-[50px] flex justify-end items-center pr-3">
                     <IoMdClose className="text-[#e8e8e8] cursor-pointer" size={22} onClick={handleCross}/>
                 </div>
-                <div id="side-lower-part">
-                    {
-                        sidebardata.map((Data) => {
-                        const isActive = location.pathname === Data.link;
-                        return(<SideOption
-                        key={Data.link}
-                        onClick={()=>{navigate(Data.link)}}
-                        title={Data.title}
-                        logo={Data.icon}
-                        isSidebarOpen={isSidebarOpen}
-                        isActive={isActive}
-                        />)
-                    })
-                    }
-                </div>
-                <div id="Recent-Heading" className=" text-[#CCCC] my-4 pl-2 md:text-md lg:text-lg">Recent</div>
-                <div id="side-recent-part" className="overflow-y-auto  flex-1 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-sidebar">
-                    {
-                        recentdata.map((Data) => {
-                            
-                            return(<RecentOption
-                           
-                            title={Data.title}
-                            tag={Data.tag}
-                            
-                            />)
+                <div id="My-Notebooks-Heading" className="text-[#CCCC] my-4 pl-2 md:text-md lg:text-lg">My Notebooks</div>
+                <div id="side-notebooks-part" className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-sidebar">
+                    {loading ? (
+                        <div className="text-[#CCCC] pl-2 text-sm">Loading...</div>
+                    ) : notebooks.length === 0 ? (
+                        <div className="text-[#CCCC] pl-2 text-sm">No notebooks yet</div>
+                    ) : (
+                        notebooks.map((notebook) => {
+                            const isActive = location.pathname === `/notebook/${notebook.id}`;
+                            return (
+                                <div
+                                    key={notebook.id}
+                                    onClick={() => handleNotebookClick(notebook)}
+                                    className={`text-sm md:text-md text-[#e8e8e8] flex rounded-md cursor-pointer hover:bg-[#303030] p-2 mx-1.5 transition-colors ${
+                                        isActive ? "bg-[#303030]" : ""
+                                    }`}
+                                >
+                                    <span className="flex-[50%] grid place-items-start pl-2 truncate">{notebook.title}</span>
+                                    <span className="flex-[1%] grid place-items-center">
+                                        <Book size={14} />
+                                    </span>
+                                </div>
+                            );
                         })
-                    }
+                    )}
                 </div>
                 <div id="user-detials" className="h-20 w-full flex text:md md:text:lg text-[#e8e8e8] ">
                     <div  id="user-logo" className="flex-[25%] grid place-items-center  ">ULO</div>
@@ -83,31 +104,31 @@ export default function SideNavbar() {
              <div id="side-upper-part" className="w-full bg-[#212121] h-[50px] flex justify-end items-center pr-3">
                     <IoMdClose className="text-[#e8e8e8] cursor-pointer" size={22} onClick={() => setIsMobileSidebarOpen(false)}/>
                 </div>
-                <div id="side-lower-part">
-                    {
-                        sidebardata.map((Data) => {
-                        const isActive = location.pathname === Data.link;
-                        return(<SideOption
-                        key={Data.link}
-                        title={Data.title}
-                        logo={Data.icon}
-                        isSidebarOpen={isMobileSidebarOpen}
-                        onClick={()=> navigate(Data.link)}
-                        isActive={isActive}
-                        />)
-                    })
-                    }
-                </div>
-                <div id="Recent-Heading" className=" text-[#CCCC] my-4 pl-2 md:text-md lg:text-lg">Recent</div>
-                <div id="side-recent-part" className="overflow-y-auto  flex-1 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-sidebar">
-                    {
-                        recentdata.map((Data) => {
-                            return(<RecentOption
-                            title={Data.title}
-                            tag={Data.tag}
-                            />)
+                <div id="My-Notebooks-Heading" className="text-[#CCCC] my-4 pl-2 md:text-md lg:text-lg">My Notebooks</div>
+                <div id="side-notebooks-part" className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-sidebar">
+                    {loading ? (
+                        <div className="text-[#CCCC] pl-2 text-sm">Loading...</div>
+                    ) : notebooks.length === 0 ? (
+                        <div className="text-[#CCCC] pl-2 text-sm">No notebooks yet</div>
+                    ) : (
+                        notebooks.map((notebook) => {
+                            const isActive = location.pathname === `/notebook/${notebook.id}`;
+                            return (
+                                <div
+                                    key={notebook.id}
+                                    onClick={() => handleNotebookClick(notebook)}
+                                    className={`text-sm md:text-md text-[#e8e8e8] flex rounded-md cursor-pointer hover:bg-[#303030] p-2 mx-1.5 transition-colors ${
+                                        isActive ? "bg-[#303030]" : ""
+                                    }`}
+                                >
+                                    <span className="flex-[50%] grid place-items-start pl-2 truncate">{notebook.title}</span>
+                                    <span className="flex-[1%] grid place-items-center">
+                                        <Book size={14} />
+                                    </span>
+                                </div>
+                            );
                         })
-                    }
+                    )}
                 </div>
                 <div id="user-detials" className="h-20 w-full flex text:md md:text:lg text-[#e8e8e8] ">
                     <div  id="user-logo" className="flex-[25%] grid place-items-center  ">ULO</div>
@@ -126,20 +147,6 @@ export default function SideNavbar() {
                         <div id="website logo" className="w-14 flex cursor-pointer h-[50px] text-[#e8e8e8] justify-center items-center rounded-lg hover:border hover:border-[#424242]  transition-all duration-1000" onClick={handleHamburgerClick}>
                         <RiMenu3Line className="p-0 m-0"/>
                         
-                        </div>
-                        <div id="logos-only-part">
-                        {
-                        sidebardata.map((Data) => {
-                        const isActive = location.pathname === Data.link;
-                        return(<SideOption
-                        onClick={()=> navigate(Data.link)}
-                        title={Data.title}
-                        logo={Data.icon}
-                        isSidebarOpen={isSidebarOpen}
-                        isActive={isActive}
-                        />)
-                        })
-                        }
                         </div>
                     </div>
     </>)

@@ -23,7 +23,12 @@ export default   function CreateNewNotebookModal(props) {
                 colour: colour
             }, { withCredentials: true });
             console.log(res.data);
-                        props.closeModal();
+            // Pass the created notebook back to parent
+            if (props.onNotebookCreated && res.data.notebook) {
+                props.onNotebookCreated(res.data.notebook);
+            }
+            props.closeModal();
+            setNotebookName(""); // Reset form
         } catch (err) { console.error(err); setError(err.message) } 
         finally { setCreating(false); }
     }
@@ -38,6 +43,17 @@ export default   function CreateNewNotebookModal(props) {
         />
 
         <div className="relative bg-[#0F0F0F] border border-white/10 p-8 rounded-[2rem] w-full max-w-[500px] shadow-[0_0_50px_-12px_rgba(255,87,51,0.2)] z-10 animate-in fade-in zoom-in duration-300">
+            {creating && (
+                <div className="absolute inset-0 bg-[#0F0F0F]/95 backdrop-blur-sm rounded-[2rem] flex items-center justify-center z-20">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="relative w-16 h-16">
+                            <div className="absolute inset-0 border-4 border-[#FF5733]/20 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-transparent border-t-[#FF5733] rounded-full animate-spin"></div>
+                        </div>
+                        <p className="text-gray-300 text-sm font-medium tracking-wide">Creating notebook...</p>
+                    </div>
+                </div>
+            )}
             
             <header className="mb-6">
                 <h2 className="text-xl font-bold text-white tracking-tight">Create New Notebook</h2>
@@ -46,7 +62,7 @@ export default   function CreateNewNotebookModal(props) {
                 </p>
             </header>
 
-            <div className="space-y-5">
+            <div className={`space-y-5 ${creating ? 'opacity-50 pointer-events-none' : ''}`}>
                 <div>
                     {error && (
                         <div className="text-red-700 text-9">{error}</div>
@@ -110,9 +126,16 @@ export default   function CreateNewNotebookModal(props) {
                     onClick={() => {
                         createNewNoteBook(notebookName,selectedColor);  
                     }}
-                    className="flex-2 bg-[#FF5733] hover:bg-[#ff6a4d] text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase tracking-wider shadow-lg shadow-[#FF5733]/20 transition-all active:scale-95"
+                    className="flex-2 bg-[#FF5733] hover:bg-[#ff6a4d] disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase tracking-wider shadow-lg shadow-[#FF5733]/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
-                    Create Notebook
+                    {creating ? (
+                        <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            <span>Creating...</span>
+                        </>
+                    ) : (
+                        "Create Notebook"
+                    )}
                 </button>
             </div>
         </div>

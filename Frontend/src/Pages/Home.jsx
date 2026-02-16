@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import SmallTiptapEditor from "../components/SmallTiptapEditor";
 import SideNavbar from "../components/SideNavbar";
 import axios from "axios";
@@ -12,6 +12,7 @@ export default function Home() {
     const [creating, setCreating] = useState(false);
     const [isModalOpen,setIsModalOpen] = useState(true);
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+    const notebookComponentRef = useRef(null);
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
 
@@ -41,6 +42,12 @@ export default function Home() {
               openModal={openModal}
               closeModal={closeModal}
               isModalOpen={isModalOpen}
+              onNotebookCreated={(notebook) => {
+                // Add the new notebook to NotebookComponent state
+                if (notebookComponentRef.current) {
+                  notebookComponentRef.current.addNotebook(notebook);
+                }
+              }}
             />
 
             {/* Join Notebook Modal */}
@@ -69,7 +76,7 @@ export default function Home() {
                         />
 
                         {/* Recent Notebooks Section */}
-                        <NotebookComponent/>
+                        <NotebookComponent ref={notebookComponentRef}/>
                     </div>
 
                     {/* RIGHT SECTION: Fixed Width Sidebar for Editor & Activity */}
