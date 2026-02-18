@@ -3,8 +3,9 @@
   width: 100%;
   max-width: none !important;
   margin: 0 !important;
-  border: 1px solid #ccc;
-  background: #fff;
+  border: 1px solid #e5e7eb;
+  /* Gray-200 */
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -25,8 +26,9 @@
   flex-wrap: wrap;
   gap: 6px;
   padding: 8px;
-  background: #f5f5f5;
-  border-bottom: 1px solid #ddd;
+  background: #f9fafb;
+  /* Gray-50 */
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .rte-container.dark .toolbar {
@@ -38,9 +40,11 @@
 .toolbar select,
 .toolbar input[type="color"] {
   padding: 6px;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #374151;
+  /* Gray-700 */
   cursor: pointer;
   transition: 0.2s;
 }
@@ -54,7 +58,10 @@
 
 .toolbar button:hover,
 .toolbar select:hover {
-  background: #eee;
+  background: #f3f4f6;
+  /* Gray-100 */
+  color: #111827;
+  /* Gray-900 */
 }
 
 /* Editor wrapper — takes full remaining space */

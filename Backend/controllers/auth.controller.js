@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
-import {PrismaClient} from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const {
   GOOGLE_CLIENT_ID,
@@ -122,7 +122,7 @@ export const googleCallback = async (req, res) => {
         where: {
           OR: [
             { google_id: googleId },
-            {email: email},
+            { email: email },
           ],
         },
         select: {
@@ -135,7 +135,7 @@ export const googleCallback = async (req, res) => {
       let driveFolderId;
 
       if (!userRes) {
-      
+
         driveFolderId = await getOrCreateNotesFolder(access_token);
 
         const insert = await prisma.user.create({
@@ -210,7 +210,7 @@ export const getMe = async (req, res) => {
         full_name: true,
         avatar_url: true,
       },
-})
+    })
 
     res.json(user);
   } catch {

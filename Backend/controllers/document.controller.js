@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import {PrismaClient} from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import cloudinary from '../utils/cloudinary.js';
 import streamifier from 'streamifier';
 
@@ -32,7 +32,7 @@ async function userHasNotebookAccess(prisma, userId, notebookId) {
   return notebook;
 }
 
-async function uploadFileToNotebookFolder(accessToken, notebookFolderId, file ) {
+async function uploadFileToNotebookFolder(accessToken, notebookFolderId, file) {
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
 
@@ -190,6 +190,7 @@ export const uploadNoteImage = async (req, res) => {
   }
 };
 
+
 export const uploadDocumentToCloudinary = async (req, res) => {
   const prisma = new PrismaClient();
 
@@ -224,7 +225,7 @@ export const uploadDocumentToCloudinary = async (req, res) => {
         const stream = cloudinary.uploader.upload_stream(
           {
             folder: `notebooks/${notebookIdNum}`, // optional folder structure
-            resource_type: 'auto',
+            resource_type: file.mimetype === 'application/pdf' ? 'raw' : 'auto',
             type: "upload",
           },
           (error, result) => {
@@ -261,6 +262,9 @@ export const uploadDocumentToCloudinary = async (req, res) => {
       },
     });
 
+    // update the value of updated_at in notebook table (notebookIdNum)
+
+
     // 4. Respond with DB record + Cloudinary metadata
     return res.status(201).json({
       document,
@@ -275,3 +279,48 @@ export const uploadDocumentToCloudinary = async (req, res) => {
     return res.status(500).json({ message: 'Failed to upload document' });
   }
 };
+
+export const uploadNoteAudio = async (req, res) => {
+  try {
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ message: 'Audio file is required' });
+    }
+
+    // Validate it's an audio file
+    if (!file.mimetype.startsWith('audio/')) {
+      return res.status(400).json({ message: 'File must be an audio file' });
+    }
+
+    // Upload audio buffer to Cloudinary (resource_type: 'video' handles audio too)
+    const streamUpload = () =>
+      new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'notebook-audio', // Folder for note audio
+            resource_type: 'video',
+            type: 'upload',
+          },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+
+        streamifier.createReadStream(file.buffer).pipe(stream);
+      });
+
+    const uploadResult = await streamUpload();
+
+    return res.status(200).json({
+      url: uploadResult.secure_url,
+      public_id: uploadResult.public_id,
+      duration: uploadResult.duration,
+    });
+  } catch (error) {
+    console.error('Upload note audio error:', error);
+    return res.status(500).json({ message: 'Failed to upload audio' });
+  }
+};
+

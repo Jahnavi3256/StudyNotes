@@ -1,21 +1,21 @@
 import { Plus, Clock, Book, Activity, ArrowUpRight, ChevronRight } from "lucide-react";
-export default function HomeHeader(props){
+export default function HomeHeader(props) {
     return (
         <div className="flex shrink-0 items-center justify-between mb-8">
             <div>
-                <h1 className="text-3xl font-bold text-white tracking-tight">Studio Dashboard</h1>
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">Studio Dashboard</h1>
             </div>
             <div className="flex items-center gap-3">
-                <button 
+                <button
                     onClick={props.openModal}
-                    className="flex items-center gap-2 bg-[#FF5733] hover:bg-[#ff6a4d] text-white px-6 py-3 rounded-2xl transition-all shadow-xl shadow-[#FF5733]/20 active:scale-95 text-sm font-bold"
+                    className="flex items-center gap-2 !bg-indigo-600 hover:!bg-indigo-700 text-white px-4 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-600/20 active:scale-95 text-xs font-bold uppercase tracking-wide"
                 >
-                    <Plus size={18} className={props.creating ? "animate-spin" : ""} />
+                    <Plus size={16} className={props.creating ? "animate-spin" : ""} />
                     New Notebook
                 </button>
                 <button
                     onClick={props.openJoinModal}
-                    className="flex items-center gap-2 bg-transparent border border-white/15 hover:border-blue-500/60 text-slate-200 hover:text-white px-5 py-3 rounded-2xl transition-all shadow-lg shadow-black/40 active:scale-95 text-sm font-semibold"
+                    className="flex items-center gap-2 bg-white border border-gray-200 hover:border-indigo-500 text-gray-600 hover:text-indigo-600 px-4 py-2.5 rounded-xl transition-all shadow-sm active:scale-95 text-xs font-bold uppercase tracking-wide"
                 >
                     Join Notebook
                 </button>

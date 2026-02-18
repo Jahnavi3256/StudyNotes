@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import {PrismaClient} from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 async function userHasNotebookAccess(prisma, userId, notebookId) {
   const notebook = await prisma.notebook.findUnique({
@@ -66,6 +66,8 @@ export const createNote = async (req, res) => {
         created_at: true,
       },
     });
+
+    // also update the update_at of the notebook_id
 
     res.status(201).json({ note });
 
@@ -157,6 +159,10 @@ export const updateNote = async (req, res) => {
       },
     });
 
+    // update the value of updated_at field of this notebook to this time notebook_id 
+    // also send the notebook id while caalling this api 
+
+
     res.json({ note: updatedNote });
 
   } catch (error) {
@@ -225,5 +231,49 @@ export const renameNote = async (req, res) => {
   } catch (error) {
     console.error("Rename note error:", error);
     res.status(500).json({ message: "Failed to rename note" });
+  }
+};
+
+export const deleteNote = async (req, res) => {
+  const prisma = new PrismaClient();
+
+  try {
+    const userId = req.user;
+    const { id } = req.params;
+
+    // 1. Verify note existence and access
+    const note = await prisma.note.findFirst({
+      where: {
+        id: Number(id),
+        notebooks: {
+          OR: [
+            { owner_id: userId },
+            {
+              notebookMembers: {
+                some: {
+                  user_id: userId,
+                },
+              },
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!note) {
+      return res.status(404).json({ message: "Note not found or access denied" });
+    }
+
+    // 2. Delete the note
+    await prisma.note.delete({
+      where: { id: Number(id) },
+    });
+
+    res.json({ message: "Note deleted successfully" });
+
+  } catch (error) {
+    console.error("Delete note error:", error);
+    res.status(500).json({ message: "Failed to delete note" });
   }
 };

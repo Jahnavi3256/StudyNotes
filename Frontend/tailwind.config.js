@@ -11,12 +11,14 @@ export default {
         heading: ["Poppins", "sans-serif"],
       },
       colors: {
-        sidebar: '#212121',
+        sidebar: '#f3f4f6', // Gray-100 for light sidebar
+        primary: '#4f46e5',
+        'primary-hover': '#4338ca',
       }
     },
   },
   plugins: [
-     require('tailwind-scrollbar'),
-     require('tailwind-scrollbar')({ nocompatible: true }),
+    require('tailwind-scrollbar'),
+    require('tailwind-scrollbar')({ nocompatible: true }),
   ],
 };
