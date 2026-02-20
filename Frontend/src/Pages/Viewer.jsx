@@ -2,18 +2,35 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import TiptapEdited from "../components/TiptapEditor";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { Trash2, AlertTriangle, Menu, Maximize2, Minimize2, MessageSquare, MessageSquareOff } from "lucide-react";
 import CollaborationPanel from "../components/CollaborationPanel";
 
 export default function Viewer() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showChat, setShowChat] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync fullscreen state with browser Escape key / other exits
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
   const [activeDocId, setActiveDocId] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isCollaborationOpen, setIsCollaborationOpen] = useState(false);
   const [currentNote, setCurrentNote] = useState(1);
   const [isEditing, setIsEditing] = useState(true);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState([]);
   const { id } = useParams();
   const [docs, setDocs] = useState([]);
   const [notes, setNotes] = useState([]);
@@ -282,7 +299,7 @@ export default function Viewer() {
         notebookId={id}
         currentUser={currentUser}
         isOpen={isCollaborationOpen}
-        onClose={() => setIsCollaborationOpen(false)}
+        onClose={() => setIsCollaborationOpen(prev => !prev)}
       />
 
       {/* HEADER */}
@@ -290,9 +307,9 @@ export default function Viewer() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className={`p-2 rounded-lg transition-colors ${isSidebarOpen ? 'bg-indigo-50 text-indigo-600' : 'hover:bg-gray-100 text-gray-500'}`}
+            className="p-2 rounded-lg transition-colors text-gray-500 hover:bg-gray-100"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            <Menu size={16} />
           </button>
           <div className="flex items-center gap-2 text-sm border-l border-gray-200 pl-4">
             <span className="text-gray-500">{notebook.title}</span>
@@ -301,18 +318,22 @@ export default function Viewer() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsCollaborationOpen(true)}
-            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${isCollaborationOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-          >
-            Collaboration
-          </button>
+        <div className="flex items-center gap-2">
+          {/* Chat toggle */}
           <button
             onClick={() => setShowChat(!showChat)}
-            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${showChat ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+            title={showChat ? "Hide Chat" : "Show Chat"}
+            className={`p-1.5 rounded-lg transition-colors ${showChat ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:bg-gray-100'}`}
           >
-            {showChat ? "Hide Chat" : "Show Chat"}
+            {showChat ? <MessageSquare size={15} /> : <MessageSquareOff size={15} />}
+          </button>
+          {/* Fullscreen toggle */}
+          <button
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"
+          >
+            {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
           </button>
         </div>
       </header>
@@ -390,14 +411,16 @@ export default function Viewer() {
         <section className="flex-1 bg-white relative min-w-0">
 
           {/* TABS BAR */}
-          <div className="flex items-center bg-gray-50 border-b border-gray-200 overflow-x-auto shrink-0 scrollbar-hide">
+          <div className="h-8 flex items-center bg-gray-50 border-b border-gray-200 overflow-x-auto shrink-0 scrollbar-hide">
             {notes.map((note) => (
               <div
                 key={note.id}
                 onContextMenu={(e) => handleContextMenu(e, note.id)}
                 onDoubleClick={() => setEditingTabId(note.id)}
                 onClick={() => setCurrentNoteId(note.id)}
-                className={`group flex items-center gap-3 px-4 py-2 cursor-pointer border-r border-gray-200 min-w-[130px] transition-all relative ${currentNoteId === note.id ? "bg-white text-indigo-600 border-t-2 border-t-indigo-600 shadow-sm" : "text-gray-500 hover:bg-gray-100"
+                className={`group flex items-center gap-2 px-2 py-0 h-full cursor-pointer border-r border-gray-200 min-w-[100px] transition-all relative ${currentNoteId === note.id
+                  ? "bg-white text-indigo-600 border-t-2 border-t-indigo-600 shadow-sm"
+                  : "text-gray-500 hover:bg-gray-100"
                   }`}
               >
                 {editingTabId === note.id ? (
@@ -416,7 +439,8 @@ export default function Viewer() {
                         e.stopPropagation();
                         setDeleteConfirmation({ isOpen: true, noteId: note.id });
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded text-gray-400 hover:text-red-500 transition-all"
+                      style={{ padding: "0.3em 0.5em" }}
+                      className="opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded text-gray-400 hover:text-red-500 transition-all"
                       title="Delete Note"
                     >
                       <Trash2 size={12} />
@@ -481,25 +505,62 @@ export default function Viewer() {
               ))
             )}
           </div>
-
-          {/* CHAT INTERFACE */}
-          {showChat && (
-            <div className="absolute bottom-6 left-6 right-6 bg-white/90 backdrop-blur-xl border border-gray-200 rounded-2xl shadow-2xl flex flex-col ring-1 ring-gray-900/5">
-              <div className="p-3 text-[9px] font-black text-indigo-600/80 border-b border-gray-100 uppercase tracking-[0.2em] px-5">AI Contextual Engine</div>
-              <div className="h-32 p-5 text-sm overflow-y-auto space-y-4">
-                <div className="bg-indigo-50 text-indigo-900 p-3 rounded-2xl rounded-tl-none max-w-[80%] border border-indigo-100">
-                  Reviewing <strong>{docs.find(d => d.id === activeDocId)?.filename || 'document'}</strong>. Ask me anything about the content or context.
-                </div>
-              </div>
-              <div className="p-4 bg-gray-50 flex gap-3 items-center">
-                <input className="bg-transparent flex-1 text-sm outline-none placeholder:text-gray-400 text-gray-900" placeholder="Type a command or question..." />
-                <button className="bg-indigo-600 text-white font-bold rounded-xl px-4 py-1.5 text-xs hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20">
-                  Send
-                </button>
-              </div>
-            </div>
-          )}
         </section>
+
+        {/* CHAT PANEL — right side */}
+        <aside
+          className={`bg-white border-l border-gray-200 flex flex-col transition-all duration-300 ease-in-out overflow-hidden shrink-0 ${showChat ? "w-72 opacity-100" : "w-0 opacity-0"
+            }`}
+        >
+          <div className="h-8 flex items-center px-4 border-b border-gray-100 shrink-0">
+            <span className="text-[9px] font-black text-indigo-600/80 uppercase tracking-[0.2em]">AI Contextual Engine</span>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="bg-indigo-50 text-indigo-900 p-3 rounded-2xl rounded-tl-none text-xs border border-indigo-100">
+              Reviewing <strong>{docs.find(d => d.id === activeDocId)?.filename || 'document'}</strong>. Ask me anything about the content or context.
+            </div>
+            {chatMessages.map((msg, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-2xl text-xs max-w-[90%] ${msg.role === "user"
+                    ? "ml-auto bg-indigo-600 text-white rounded-tr-none"
+                    : "bg-gray-100 text-gray-700 rounded-tl-none"
+                  }`}
+              >
+                {msg.text}
+              </div>
+            ))}
+          </div>
+
+          {/* Input */}
+          <div className="p-3 border-t border-gray-100 flex gap-2 items-center shrink-0">
+            <input
+              className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-400 placeholder:text-gray-400"
+              placeholder="Ask anything..."
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && chatInput.trim()) {
+                  setChatMessages(prev => [...prev, { role: "user", text: chatInput.trim() }]);
+                  setChatInput("");
+                }
+              }}
+            />
+            <button
+              className="bg-indigo-600 text-white text-xs font-bold rounded-lg px-3 py-1.5 hover:bg-indigo-700 transition-colors shrink-0"
+              onClick={() => {
+                if (chatInput.trim()) {
+                  setChatMessages(prev => [...prev, { role: "user", text: chatInput.trim() }]);
+                  setChatInput("");
+                }
+              }}
+            >
+              Send
+            </button>
+          </div>
+        </aside>
 
         {/* CONTEXT MENU */}
         {contextMenu && (
@@ -510,10 +571,10 @@ export default function Viewer() {
           >
             <button
               onClick={handleDeleteClick}
-              className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+              className="w-full text-left px-2 py-1 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-md"
             >
-              <Trash2 size={12} />
-              Delete Note
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete</span>
             </button>
           </div>
         )}
@@ -538,7 +599,7 @@ export default function Viewer() {
                 </button>
                 <button
                   onClick={handleDeleteConfirm}
-                  className="w-full py-2 px-4 border border-transparent rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  className="w-full py-2 px-4 border border-transparent rounded-xl text-sm font-medium text-gray-700 bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 >
                   Delete
                 </button>

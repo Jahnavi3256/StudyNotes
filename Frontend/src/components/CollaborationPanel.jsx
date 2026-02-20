@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronRight, Mic, MicOff, CheckSquare, Phone, PhoneOff, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mic, MicOff, CheckSquare, Phone, PhoneOff, Trash2 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
 const CollaborationPanel = ({ notebookId, currentUser, isOpen, onClose }) => {
@@ -234,9 +234,9 @@ const CollaborationPanel = ({ notebookId, currentUser, isOpen, onClose }) => {
             {/* TOGGLE BUTTON (Outside) */}
             <button
                 onClick={onClose}
-                className="absolute -left-8 top-1/2 bg-white p-1 rounded-l-lg shadow-md border border-r-0 border-gray-200 text-gray-500 hover:text-indigo-600"
+                className="absolute -left-10 top-1/2 rounded-l-lg text-gray-500 hover:text-indigo-600"
             >
-                <ChevronRight />
+                {isOpen ? <ChevronRight /> : <ChevronLeft />}
             </button>
 
             {/* HEADER */}
@@ -271,7 +271,7 @@ const CollaborationPanel = ({ notebookId, currentUser, isOpen, onClose }) => {
                             {!isConnected ? (
                                 <button
                                     onClick={joinVoice}
-                                    className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                                    className="w-full py-2 bg-indigo-600 text-black rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
                                 >
                                     <Phone size={16} /> Join Voice Channel
                                 </button>
@@ -319,41 +319,76 @@ const CollaborationPanel = ({ notebookId, currentUser, isOpen, onClose }) => {
                         )}
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        <div className="flex gap-2">
+                    <div className="flex flex-col gap-4">
+
+                        {/* Input bar */}
+                        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-50 transition-all">
                             <input
                                 value={newTask}
                                 onChange={(e) => setNewTask(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && addTask()}
                                 placeholder="Add a new task..."
-                                className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-500"
+                                className="flex-1 text-sm bg-transparent outline-none text-gray-700 placeholder:text-gray-400"
                             />
                             <button
                                 onClick={addTask}
-                                className="bg-indigo-600 text-white rounded-lg px-3 hover:bg-indigo-700"
+                                className="w-6 h-6 flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition-colors flex-shrink-0"
                             >
                                 +
                             </button>
                         </div>
 
+                        {/* Task count summary */}
+                        {tasks.length > 0 && (
+                            <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-widest text-gray-400 px-1">
+                                <span>{tasks.filter(t => t.completed).length}/{tasks.length} completed</span>
+                                <div className="flex-1 mx-3 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+                                        style={{ width: `${tasks.length ? (tasks.filter(t => t.completed).length / tasks.length) * 100 : 0}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Task list */}
                         <div className="space-y-2">
-                            {tasks.length === 0 && <p className="text-center text-gray-400 text-xs py-4">No tasks yet</p>}
+                            {tasks.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-8 text-gray-300">
+                                    <CheckSquare size={28} className="mb-2" />
+                                    <p className="text-xs">No tasks yet. Add one above.</p>
+                                </div>
+                            )}
                             {tasks.map(task => (
-                                <div key={task.id} className="flex items-start gap-3 group">
+                                <div
+                                    key={task.id}
+                                    className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${task.completed
+                                        ? 'bg-gray-50 border-gray-100'
+                                        : 'bg-white border-gray-200 hover:border-indigo-200 hover:shadow-sm'
+                                        }`}
+                                >
+                                    {/* Checkbox */}
                                     <button
                                         onClick={() => toggleTask(task.id)}
-                                        className={`mt-0.5 flex-shrink-0 `}
+                                        className="flex-shrink-0"
                                     >
-                                        {task.completed ? <CheckSquare size={18} className="text-emerald-500" /> : <div className="w-[18px] h-[18px] border-2 border-gray-300 rounded flex-shrink-0 hover:border-indigo-400" />}
+                                        {task.completed
+                                            ? <CheckSquare size={16} className="text-emerald-500" />
+                                            : <div className="w-4 h-4 border-2 border-gray-300 rounded hover:border-indigo-400 transition-colors" />
+                                        }
                                     </button>
-                                    <span className={`text-sm flex-1 break-words ${task.completed ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+
+                                    {/* Task text */}
+                                    <span className={`text-sm flex-1 break-words leading-snug ${task.completed ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
                                         {task.text}
                                     </span>
+
+                                    {/* Delete */}
                                     <button
                                         onClick={() => deleteTask(task.id)}
-                                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="flex-shrink-0 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
                                     >
-                                        <Trash2 size={14} />
+                                        <Trash2 size={13} />
                                     </button>
                                 </div>
                             ))}

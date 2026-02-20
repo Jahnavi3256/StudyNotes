@@ -113,10 +113,11 @@ const NotebookComponent = forwardRef(function NotebookComponent(props, ref) {
                                 {note.isOwner && note.code && (
                                     <button
                                         onClick={(e) => handleCopyCode(e, note.code, note.id)}
-                                        className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
+                                        style={{ padding: "0.3em 0.5em" }}
+                                        className="flex items-center gap-1 text-[9px] rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
                                     >
                                         {copiedId === note.id ? (
-                                            <span>Copied</span>
+                                            <span className="text-[9px] leading-none">Copied</span>
                                         ) : (
                                             <Clipboard size={12} />
                                         )}
@@ -125,7 +126,7 @@ const NotebookComponent = forwardRef(function NotebookComponent(props, ref) {
                                 <ArrowUpRight size={16} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
                             </div>
                         </div>
-                        <h3 className="text-base font-semibold text-gray-900 truncate"> {note.title}</h3>
+                        <h3 className="text-sm font-semibold text-gray-900 truncate"> {note.title}</h3>
                         {/* <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-medium">
                             Edited {formatTimeAgo(note.updated_at)}
                         </p> */}
