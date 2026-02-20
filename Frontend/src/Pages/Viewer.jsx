@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import TiptapEdited from "../components/TiptapEditor";
-import { useLocation } from "react-router-dom";
 import { Trash2, AlertTriangle } from "lucide-react";
+import CollaborationPanel from "../components/CollaborationPanel";
 
 export default function Viewer() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -11,6 +11,7 @@ export default function Viewer() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeDocId, setActiveDocId] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isCollaborationOpen, setIsCollaborationOpen] = useState(false);
   const [currentNote, setCurrentNote] = useState(1);
   const [isEditing, setIsEditing] = useState(true);
   const { id } = useParams();
@@ -134,8 +135,6 @@ export default function Viewer() {
       console.error("Rename failed", err);
     }
   };
-
-
 
   // ── Context Menu & Delete Handlers ────────────────────────────────────────
   const handleContextMenu = useCallback((e, noteId) => {
@@ -268,8 +267,6 @@ export default function Viewer() {
           </div>
           <p className="text-gray-400 text-xs font-medium tracking-wide">Loading notebook...</p>
         </div>
-        {/* CONTEXT MENU */}
-
       </div>
     );
   }
@@ -279,6 +276,14 @@ export default function Viewer() {
 
   return (
     <div className="w-screen h-screen bg-gray-100 text-gray-800 flex flex-col font-sans selection:bg-indigo-500/30">
+
+      {/* COLLABORATION PANEL */}
+      <CollaborationPanel
+        notebookId={id}
+        currentUser={currentUser}
+        isOpen={isCollaborationOpen}
+        onClose={() => setIsCollaborationOpen(false)}
+      />
 
       {/* HEADER */}
       <header className="h-8 flex items-center justify-between px-6 border-b border-gray-200 bg-white shrink-0 z-20">
@@ -297,6 +302,12 @@ export default function Viewer() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsCollaborationOpen(true)}
+            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${isCollaborationOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+          >
+            Collaboration
+          </button>
           <button
             onClick={() => setShowChat(!showChat)}
             className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${showChat ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
@@ -535,8 +546,6 @@ export default function Viewer() {
             </div>
           </div>
         )}
-
-
       </div>
     </div>
   );
