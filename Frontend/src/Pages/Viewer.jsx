@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import TiptapEdited from "../components/TiptapEditor";
-import { Trash2, AlertTriangle, Menu, Maximize2, Minimize2, MessageSquare, MessageSquareOff } from "lucide-react";
+import { Trash2, AlertTriangle, Menu, Maximize2, Minimize2, MessageSquare, MessageSquareOff, FileText } from "lucide-react";
 import CollaborationPanel from "../components/CollaborationPanel";
 
 export default function Viewer() {
@@ -24,13 +24,10 @@ export default function Viewer() {
       document.exitFullscreen();
     }
   };
+
   const [activeDocId, setActiveDocId] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isCollaborationOpen, setIsCollaborationOpen] = useState(false);
-  const [currentNote, setCurrentNote] = useState(1);
-  const [isEditing, setIsEditing] = useState(true);
-  const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState([]);
   const { id } = useParams();
   const [docs, setDocs] = useState([]);
   const [notes, setNotes] = useState([]);
@@ -42,6 +39,8 @@ export default function Viewer() {
   const [currentNoteId, setCurrentNoteId] = useState(null);
   const [editingTabId, setEditingTabId] = useState(null);
   const [isAddingNote, setIsAddingNote] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState([]);
 
   // Context Menu & Delete State
   const [contextMenu, setContextMenu] = useState(null);
@@ -81,12 +80,17 @@ export default function Viewer() {
   // ── Load current user ─────────────────────────────────────────────────────
   useEffect(() => {
     axios.get("http://localhost:4000/auth/me", { withCredentials: true })
-      .then(res => setCurrentUser({
-        ...res.data.user,
-        color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
-      }))
+      .then(res => {
+        const u = res.data.user;
+        setCurrentUser({
+          ...u,
+          // Normalise: backend returns full_name, editor expects name
+          name: u.full_name || u.name || u.email || "User",
+          color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+        });
+      })
       .catch(() => setCurrentUser({
-        id: Math.floor(Math.random() * 10000), // random ID for anonymous users
+        id: Math.floor(Math.random() * 10000),
         name: "User",
         color: '#10b981',
       }));
@@ -122,7 +126,6 @@ export default function Viewer() {
       );
 
       const savedNote = res.data.note;
-
       setNotes(prev => [...prev, savedNote]);
       setCurrentNoteId(savedNote.id);
 
@@ -142,7 +145,6 @@ export default function Viewer() {
     if (!newTitle.trim()) return;
 
     const isTempNote = typeof noteId === "string" && String(noteId).startsWith("temp-");
-
     setNotes(prev => prev.map(n => n.id === noteId ? { ...n, title: newTitle.trim() } : n));
 
     if (isTempNote) return;
@@ -187,13 +189,8 @@ export default function Viewer() {
 
       setNotes(prev => {
         const newNotes = prev.filter(n => n.id !== noteIdToDelete);
-        // If we deleted the active note, switch to another one
         if (currentNoteId === noteIdToDelete) {
-          if (newNotes.length > 0) {
-            setCurrentNoteId(newNotes[0].id);
-          } else {
-            setCurrentNoteId(null);
-          }
+          setCurrentNoteId(newNotes.length > 0 ? newNotes[0].id : null);
         }
         return newNotes;
       });
@@ -209,17 +206,13 @@ export default function Viewer() {
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (file) {
-      console.log("Selected file:", file.name);
       const formData = new FormData();
       formData.append("file", file);
       formData.append("notebookId", notebook.id);
-      console.log(formData);
 
       try {
         const response = await axios.post("http://localhost:4000/upload-doc", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+          headers: { "Content-Type": "multipart/form-data" },
           withCredentials: true,
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -240,9 +233,7 @@ export default function Viewer() {
   const startResizing = useCallback((e) => {
     e.preventDefault();
     isResizing.current = true;
-
     document.querySelectorAll('iframe').forEach(el => el.style.pointerEvents = 'none');
-
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", stopResizing);
     document.body.style.cursor = "col-resize";
@@ -251,9 +242,7 @@ export default function Viewer() {
 
   const stopResizing = useCallback(() => {
     isResizing.current = false;
-
     document.querySelectorAll('iframe').forEach(el => el.style.pointerEvents = 'auto');
-
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", stopResizing);
     document.body.style.cursor = "default";
@@ -262,13 +251,10 @@ export default function Viewer() {
 
   const handleMouseMove = useCallback((e) => {
     if (!isResizing.current) return;
-
     const sidebarWidth = isSidebarOpen ? 112 : 0;
     const availableWidth = window.innerWidth - sidebarWidth;
     const newLeftWidth = e.clientX - sidebarWidth;
-
     const newPercentage = (newLeftWidth / availableWidth) * 100;
-
     if (newPercentage > 15 && newPercentage < 80) {
       setPdfWidth(newPercentage);
     }
@@ -343,24 +329,33 @@ export default function Viewer() {
 
         {/* COLLAPSIBLE SIDEBAR */}
         <aside
-          className={`bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${isSidebarOpen ? "w-28 opacity-100" : "w-0 opacity-0"
-            }`}
+          className={`bg-gray-50 border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${isSidebarOpen ? "w-28 opacity-100" : "w-0 opacity-0"}`}
         >
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {docs.map((doc) => (
-              <div key={doc.id} className="group flex flex-col items-center gap-0.5 cursor-pointer" onClick={() => setActiveDocId(doc.id)}>
-                <div className={`relative w-full aspect-3/4 rounded-lg overflow-hidden border-2 transition-all duration-200 ${activeDocId === doc.id ? "border-indigo-500 shadow-lg shadow-indigo-500/10" : "border-gray-200 group-hover:border-indigo-200"
-                  } ${doc.color}`}>
-                  <div className="absolute inset-0 bg-linear-to-br from-white/10 to-transparent" />
-                </div>
-                <span className={`text-[10px] truncate w-full text-center px-1 transition-colors ${activeDocId === doc.id ? "text-indigo-600 font-bold" : "text-gray-500 group-hover:text-gray-700"
+              <div
+                key={doc.id}
+                className="group flex flex-col items-center gap-2 cursor-pointer"
+                onClick={() => setActiveDocId(doc.id)}
+              >
+                <div className={`relative w-full aspect-[3/4] rounded-xl flex items-center justify-center overflow-hidden border transition-all duration-300 ${activeDocId === doc.id
+                  ? "border-indigo-500 bg-white shadow-[0_8px_30px_rgb(79,70,229,0.12)] scale-[1.02]"
+                  : "border-gray-200 bg-gray-50 group-hover:border-indigo-200 group-hover:bg-white group-hover:shadow-md"
                   }`}>
+                  <FileText
+                    size={28}
+                    className={`transition-colors duration-300 ${activeDocId === doc.id ? "text-indigo-500" : "text-gray-300 group-hover:text-indigo-300"}`}
+                    strokeWidth={1.5}
+                  />
+                  <div className="absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-black/5 to-transparent pointer-events-none" />
+                </div>
+                <span className={`text-[10px] truncate w-full text-center px-1 transition-colors ${activeDocId === doc.id ? "text-indigo-600 font-semibold" : "text-gray-500 group-hover:text-gray-700"}`}>
                   {doc.filename}
                 </span>
               </div>
             ))}
           </div>
-          <div className="p-3 h-24 border-t border-gray-200">
+          <div className="p-3 mt-auto border-t border-gray-200">
             <input
               type="file"
               ref={fileInputRef}
@@ -369,11 +364,15 @@ export default function Viewer() {
               accept=".pdf,.doc,.docx"
             />
             <button
-              className="w-full h-[87%] rounded-lg border border-dashed border-gray-300 flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-400 transition-all text-gray-500 hover:text-indigo-600 gap-0"
+              className="w-full aspect-[3/4] rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center hover:bg-white hover:border-indigo-300 hover:shadow-md transition-all duration-300 text-gray-400 group relative overflow-hidden"
               onClick={handleButtonClick}
             >
-              <span className="text-xl pl-1">+</span>
-              <span className="text-[11px]">Add Document</span>
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-indigo-50 transition-colors">
+                  <span className="text-xl font-light text-gray-400 group-hover:text-indigo-500">+</span>
+                </div>
+                <span className="text-[10px] font-medium opacity-80 group-hover:opacity-100 group-hover:text-indigo-600">Add Doc</span>
+              </div>
             </button>
           </div>
         </aside>
@@ -408,7 +407,7 @@ export default function Viewer() {
         </div>
 
         {/* EDITOR SECTION */}
-        <section className="flex-1 bg-white relative min-w-0">
+        <section className="flex-1 bg-white relative min-w-0 flex flex-col">
 
           {/* TABS BAR */}
           <div className="h-8 flex items-center bg-gray-50 border-b border-gray-200 overflow-x-auto shrink-0 scrollbar-hide">
@@ -463,7 +462,7 @@ export default function Viewer() {
           </div>
 
           {/* EDITOR INSTANCES */}
-          <div className="flex-1 relative h-full">
+          <div className="flex-1 relative">
             {isAddingNote ? (
               <div className="absolute inset-0 flex items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-3">
@@ -490,7 +489,7 @@ export default function Viewer() {
                     : "opacity-0 z-0 pointer-events-none"
                     }`}
                 >
-                  {currentNoteId === note.id && (
+                  {currentNoteId === note.id && currentUser && (
                     <TiptapEdited
                       note={note}
                       currentUser={currentUser}
@@ -509,8 +508,7 @@ export default function Viewer() {
 
         {/* CHAT PANEL — right side */}
         <aside
-          className={`bg-white border-l border-gray-200 flex flex-col transition-all duration-300 ease-in-out overflow-hidden shrink-0 ${showChat ? "w-72 opacity-100" : "w-0 opacity-0"
-            }`}
+          className={`bg-white border-l border-gray-200 flex flex-col transition-all duration-300 ease-in-out overflow-hidden shrink-0 ${showChat ? "w-72 opacity-100" : "w-0 opacity-0"}`}
         >
           <div className="h-8 flex items-center px-4 border-b border-gray-100 shrink-0">
             <span className="text-[9px] font-black text-indigo-600/80 uppercase tracking-[0.2em]">AI Contextual Engine</span>
@@ -525,8 +523,8 @@ export default function Viewer() {
               <div
                 key={i}
                 className={`p-3 rounded-2xl text-xs max-w-[90%] ${msg.role === "user"
-                    ? "ml-auto bg-indigo-600 text-white rounded-tr-none"
-                    : "bg-gray-100 text-gray-700 rounded-tl-none"
+                  ? "ml-auto bg-indigo-600 text-white rounded-tr-none"
+                  : "bg-gray-100 text-gray-700 rounded-tl-none"
                   }`}
               >
                 {msg.text}
@@ -582,7 +580,7 @@ export default function Viewer() {
         {/* DELETE CONFIRMATION MODAL */}
         {deleteConfirmation.isOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 w-[320px] shadow-2xl transform transition-all scale-100 opacity-100">
+            <div className="bg-white rounded-2xl p-6 w-[320px] shadow-2xl">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mb-4">
                 <AlertTriangle className="h-6 w-6 text-red-600" />
               </div>
@@ -593,13 +591,13 @@ export default function Viewer() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setDeleteConfirmation({ isOpen: false, noteId: null })}
-                  className="w-full py-2 px-4 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="w-full py-2 px-4 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteConfirm}
-                  className="w-full py-2 px-4 border border-transparent rounded-xl text-sm font-medium text-gray-700 bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  className="w-full py-2 px-4 border border-transparent rounded-xl text-sm font-medium text-white bg-red-600 hover:bg-red-700"
                 >
                   Delete
                 </button>

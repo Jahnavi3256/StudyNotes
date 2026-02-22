@@ -3,7 +3,7 @@ export default function HomeHeader(props) {
     return (
         <div className="flex shrink-0 items-center justify-between mb-8">
             <div>
-                <h1 className="text-xl font-bold text-gray-900 tracking-tight">Studio Dashboard</h1>
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">Study Sync</h1>
             </div>
             <div className="flex items-center gap-3">
                 <button

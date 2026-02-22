@@ -53,6 +53,16 @@ export default function Home() {
             <JoinNotebookModal
                 isOpen={isJoinModalOpen}
                 onClose={closeJoinModal}
+                onNotebookJoined={(notebook) => {
+                    if (notebookComponentRef.current) {
+                        notebookComponentRef.current.addNotebook({
+                            ...notebook,
+                            isOwner: false,
+                            updated_at: new Date().toISOString(),
+                            created_at: new Date().toISOString(),
+                        });
+                    }
+                }}
             />
 
             {/* 1. FIXED SIDEBAR */}

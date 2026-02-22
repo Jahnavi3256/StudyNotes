@@ -16,6 +16,7 @@ const {
 
 //GOOGLE 
 const oauth2Client = new OAuth2Client(GOOGLE_CLIENT_ID);
+const prisma = new PrismaClient();
 
 //UTILS 
 const generateState = () => randomBytes(16).toString('hex');
@@ -115,8 +116,6 @@ export const googleCallback = async (req, res) => {
     const name = payload.name;
     const avatar = payload.picture;
 
-    const prisma = new PrismaClient();
-
     try {
       const userRes = await prisma.user.findFirst({
         where: {
@@ -212,8 +211,9 @@ export const getMe = async (req, res) => {
       },
     })
 
-    res.json(user);
-  } catch {
+    res.json({ user });
+  } catch (err) {
+    console.error("getMe error:", err);
     res.status(401).json({ error: 'Invalid session' });
   }
 };

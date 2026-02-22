@@ -5,7 +5,9 @@ body {
 }
 
 
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 /* Import fonts */
 
 
@@ -95,4 +97,36 @@ button:focus-visible {
   }
 
   /* End of global styles */
+}
+
+/* ── Collaborative Cursors (Tiptap CollaborationCursor) ─────────────────── */
+
+/* The blinking caret line — color is set inline by the extension */
+.collaboration-cursor__caret {
+  border-left-width: 2px;
+  border-left-style: solid;
+  border-right: none;
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+  position: relative;
+  word-break: normal;
+}
+
+/* The name label that floats above the caret — bg color is set inline by the extension */
+.collaboration-cursor__label {
+  border-radius: 3px 3px 3px 0;
+  color: #fff;
+  font-family: "Rubik", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  left: -1px;
+  line-height: 1.4;
+  padding: 2px 6px;
+  pointer-events: none;
+  position: absolute;
+  top: -1.6em;
+  user-select: none;
+  white-space: nowrap;
+  opacity: 1;
 }

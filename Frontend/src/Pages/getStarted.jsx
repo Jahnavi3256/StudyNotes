@@ -6,9 +6,9 @@ export default function GetStarted() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-linear-to-br from-[#f5f5f4] to-[#e7e5e4] px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center">
-        
+    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-[#f5f5f4] to-[#e7e5e4] px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center relative z-10">
+
         {/* App Title */}
         <h1 className="text-3xl font-semibold text-gray-900 mb-2">
           Welcome

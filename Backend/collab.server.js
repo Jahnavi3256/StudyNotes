@@ -1,4 +1,5 @@
 // backend/collab.server.js
+import 'dotenv/config';
 import { Server } from '@hocuspocus/server';
 import { PrismaClient } from '@prisma/client';
 
@@ -38,10 +39,21 @@ const server = new Server({
     console.log(`✅ Client connected to room: ${documentName}`);
   },
 
+  async onMessage({ documentName, payload }) {
+    console.log(`📩 Message received for room: ${documentName}`);
+  },
+
+  async onConnect() {
+    console.log('🔌 New connection attempt...');
+  },
+
   async onDisconnect({ documentName }) {
     console.log(`❌ Client disconnected from room: ${documentName}`);
   },
 });
 
-server.listen();
-console.log('🚀 Hocuspocus collab server running on ws://localhost:1234');
+server.listen().then(() => {
+  console.log('🚀 Hocuspocus collab server running on ws://127.0.0.1:1234');
+}).catch(err => {
+  console.error('Failed to start Hocuspocus server:', err);
+});

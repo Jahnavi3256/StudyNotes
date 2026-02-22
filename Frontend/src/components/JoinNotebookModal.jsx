@@ -1,7 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 
-export default function JoinNotebookModal({ isOpen, onClose }) {
+export default function JoinNotebookModal({ isOpen, onClose, onNotebookJoined }) {
   const [code, setCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
@@ -18,11 +18,15 @@ export default function JoinNotebookModal({ isOpen, onClose }) {
     setJoining(true);
 
     try {
-      await axios.post(
+      const res = await axios.post(
         "http://localhost:4000/join-notebook",
         { code },
         { withCredentials: true }
       );
+      // Immediately append to the notebooks list without a page refresh
+      if (onNotebookJoined && res.data.notebook) {
+        onNotebookJoined(res.data.notebook);
+      }
       setCode("");
       onClose();
     } catch (err) {

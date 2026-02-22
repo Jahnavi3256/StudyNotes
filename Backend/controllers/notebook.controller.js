@@ -510,10 +510,15 @@ export const joinNotebookByCode = async (req, res) => {
       return res.status(400).json({ message: "Notebook code is required" });
     }
 
-    const trimmedCode = code.trim().toUpperCase();
+    const trimmedCode = code.trim();
 
-    const notebook = await prisma.notebook.findUnique({
-      where: { code: trimmedCode },
+    const notebook = await prisma.notebook.findFirst({
+      where: {
+        code: {
+          equals: trimmedCode,
+          mode: 'insensitive',   // case-insensitive match (works on PostgreSQL)
+        },
+      },
       select: {
         id: true,
         title: true,

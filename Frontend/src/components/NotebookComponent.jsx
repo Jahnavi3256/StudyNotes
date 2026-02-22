@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 const NotebookComponent = forwardRef(function NotebookComponent(props, ref) {
 
     const [notebooks, setNotebooks] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [copiedId, setCopiedId] = useState(null);
     const navigate = useNavigate();
 
@@ -26,6 +26,7 @@ const NotebookComponent = forwardRef(function NotebookComponent(props, ref) {
             }
         }
 
+        setLoading(true);
         fetchData();
     }, []);
 
@@ -96,42 +97,52 @@ const NotebookComponent = forwardRef(function NotebookComponent(props, ref) {
 
             {/* Scrollable Grid: grid-cols-3 handles the layout inside the left ID */}
             <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 content-start pb-2">
-                {notebooks.map((note) => (
-                    <div key={note.id}
-                        className="group bg-white border border-gray-200 p-4 rounded-3xl hover:border-indigo-200 hover:bg-gray-50 transition-all cursor-pointer shadow-sm"
-                        onClick={() =>
-                            navigate(`/notebook/${note.id}`, {
-                                state: { notebook: note }
-                            })
-                        }
-                    >
-                        <div className="flex justify-between items-start mb-8">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-                                <Book size={20} className="text-indigo-600" />
+                {loading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="bg-white border border-gray-100 p-4 rounded-3xl shadow-sm animate-pulse">
+                            <div className="flex justify-between items-start mb-8">
+                                <div className="w-10 h-10 bg-gray-100 rounded-xl" />
+                                <div className="w-4 h-4 bg-gray-100 rounded" />
                             </div>
-                            <div className="flex items-center gap-2">
-                                {note.isOwner && note.code && (
-                                    <button
-                                        onClick={(e) => handleCopyCode(e, note.code, note.id)}
-                                        style={{ padding: "0.3em 0.5em" }}
-                                        className="flex items-center gap-1 text-[9px] rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
-                                    >
-                                        {copiedId === note.id ? (
-                                            <span className="text-[9px] leading-none">Copied</span>
-                                        ) : (
-                                            <Clipboard size={12} />
-                                        )}
-                                    </button>
-                                )}
-                                <ArrowUpRight size={16} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
-                            </div>
+                            <div className="h-3 bg-gray-100 rounded-full w-3/4 mb-2" />
+                            <div className="h-2 bg-gray-100 rounded-full w-1/2" />
                         </div>
-                        <h3 className="text-sm font-semibold text-gray-900 truncate"> {note.title}</h3>
-                        {/* <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-medium">
-                            Edited {formatTimeAgo(note.updated_at)}
-                        </p> */}
-                    </div>
-                ))}
+                    ))
+                ) : (
+                    notebooks.map((note) => (
+                        <div key={note.id}
+                            className="group bg-white border border-gray-200 p-4 rounded-3xl hover:border-indigo-200 hover:bg-gray-50 transition-all cursor-pointer shadow-sm"
+                            onClick={() =>
+                                navigate(`/notebook/${note.id}`, {
+                                    state: { notebook: note }
+                                })
+                            }
+                        >
+                            <div className="flex justify-between items-start mb-8">
+                                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                                    <Book size={20} className="text-indigo-600" />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {note.isOwner && note.code && (
+                                        <button
+                                            onClick={(e) => handleCopyCode(e, note.code, note.id)}
+                                            style={{ padding: "0.3em 0.5em" }}
+                                            className="flex items-center gap-1 text-[9px] rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
+                                        >
+                                            {copiedId === note.id ? (
+                                                <span className="text-[9px] leading-none">Copied</span>
+                                            ) : (
+                                                <Clipboard size={12} />
+                                            )}
+                                        </button>
+                                    )}
+                                    <ArrowUpRight size={16} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
+                                </div>
+                            </div>
+                            <h3 className="text-sm font-semibold text-gray-900 truncate"> {note.title}</h3>
+                        </div>
+                    ))
+                )}
             </div>
         </section>
 
