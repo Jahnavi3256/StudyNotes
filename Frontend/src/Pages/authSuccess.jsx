@@ -14,7 +14,7 @@ export default function AuthSuccess() {
       try {
         await login();           // fetch /api/me and store user
         if (isMounted) {
-          navigate('/');         // success
+          navigate('/home');         // success
         }
       } catch (err) {
         console.log(err);
